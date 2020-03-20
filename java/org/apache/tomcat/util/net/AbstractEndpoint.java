@@ -25,7 +25,9 @@ import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -97,14 +99,6 @@ public abstract class AbstractEndpoint<S,U> {
          */
         public Object getGlobal();
 
-
-        /**
-         * Obtain the currently open sockets.
-         *
-         * @return The sockets for which the handler is tracking a currently
-         *         open connection
-         */
-        public Set<S> getOpenSockets();
 
         /**
          * Release any resources associated with the given SocketWrapper.
@@ -182,6 +176,19 @@ public abstract class AbstractEndpoint<S,U> {
     protected SynchronizedStack<SocketProcessorBase<S>> processorCache;
 
     private ObjectName oname = null;
+
+    /**
+     * Map holding all current connections keyed with the sockets.
+     */
+    protected Map<U, SocketWrapperBase<S>> connections = new ConcurrentHashMap<>();
+
+    /**
+     * Get a set with the current open connections.
+     * @return A set with the open socket wrappers
+     */
+    public Set<SocketWrapperBase<S>> getConnections() {
+        return new HashSet<>(connections.values());
+    }
 
     // ----------------------------------------------------------------- Properties
 
@@ -333,7 +340,7 @@ public abstract class AbstractEndpoint<S,U> {
      *                      released
      */
     protected void releaseSSLContext(SSLHostConfig sslHostConfig) {
-        for (SSLHostConfigCertificate certificate : sslHostConfig.getCertificates(true)) {
+        for (SSLHostConfigCertificate certificate : sslHostConfig.getCertificates()) {
             if (certificate.getSslContext() != null) {
                 SSLContext sslContext = certificate.getSslContext();
                 if (sslContext != null) {
@@ -406,26 +413,6 @@ public abstract class AbstractEndpoint<S,U> {
      */
     protected int acceptorThreadCount = 1;
 
-    /**
-     * NO-OP.
-     *
-     * @param acceptorThreadCount Unused
-     *
-     * @deprecated Will be removed in Tomcat 10.
-     */
-    @Deprecated
-    public void setAcceptorThreadCount(int acceptorThreadCount) {}
-
-    /**
-     * Always returns 1.
-     *
-     * @return Always 1.
-     *
-     * @deprecated Will be removed in Tomcat 10.
-     */
-    @Deprecated
-    public int getAcceptorThreadCount() { return 1; }
-
 
     /**
      * Priority of the acceptor threads.
@@ -437,7 +424,7 @@ public abstract class AbstractEndpoint<S,U> {
     public int getAcceptorThreadPriority() { return acceptorThreadPriority; }
 
 
-    private int maxConnections = 10000;
+    private int maxConnections = 8*1024;
     public void setMaxConnections(int maxCon) {
         this.maxConnections = maxCon;
         LimitLatch latch = this.connectionLimitLatch;
@@ -452,8 +439,7 @@ public abstract class AbstractEndpoint<S,U> {
             initializeConnectionLatch();
         }
     }
-
-    public int  getMaxConnections() { return this.maxConnections; }
+    public int getMaxConnections() { return this.maxConnections; }
 
     /**
      * Return the current count of connections handled by this endpoint, if the
@@ -1337,14 +1323,24 @@ public abstract class AbstractEndpoint<S,U> {
 
     /**
      * Close the socket when the connection has to be immediately closed when
-     * an error occurs while configuring the accepted socket, allocating
-     * a wrapper for the socket, or trying to dispatch it for processing.
+     * an error occurs while configuring the accepted socket or trying to
+     * dispatch it for processing. The wrapper associated with the socket will
+     * be used for the close.
      * @param socket The newly accepted socket
      */
-    protected abstract void closeSocket(U socket);
-
-    protected void destroySocket(U socket) {
-        closeSocket(socket);
+    protected void closeSocket(U socket) {
+        SocketWrapperBase<S> socketWrapper = connections.get(socket);
+        if (socketWrapper != null) {
+            socketWrapper.close();
+        }
     }
+
+    /**
+     * Close the socket. This is used when the connector is not in a state
+     * which allows processing the socket, or if there was an error which
+     * prevented the allocation of the socket wrapper.
+     * @param socket The newly accepted socket
+     */
+    protected abstract void destroySocket(U socket);
 }
 

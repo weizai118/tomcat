@@ -21,7 +21,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.CompletionHandler;
 import java.util.concurrent.TimeUnit;
 
-import javax.servlet.http.WebConnection;
+import jakarta.servlet.http.WebConnection;
 
 import org.apache.coyote.ProtocolException;
 import org.apache.tomcat.util.net.SocketEvent;
@@ -131,10 +131,10 @@ class Http2AsyncParser extends Http2Parser {
             throws IOException, Http2Exception {
         handleAsyncException();
         ByteBuffer header = ByteBuffer.allocate(9);
-        ByteBuffer framePaylod = ByteBuffer.allocate(input.getMaxFrameSize());
-        FrameCompletionHandler handler = new FrameCompletionHandler(expected, header, framePaylod);
+        ByteBuffer framePayload = ByteBuffer.allocate(input.getMaxFrameSize());
+        FrameCompletionHandler handler = new FrameCompletionHandler(expected, header, framePayload);
         CompletionState state =
-                socketWrapper.read(block ? BlockingMode.BLOCK : BlockingMode.NON_BLOCK, socketWrapper.getReadTimeout(), TimeUnit.MILLISECONDS, null, handler, handler, header, framePaylod);
+                socketWrapper.read(block ? BlockingMode.BLOCK : BlockingMode.NON_BLOCK, socketWrapper.getReadTimeout(), TimeUnit.MILLISECONDS, null, handler, handler, header, framePayload);
         if (state == CompletionState.ERROR || state == CompletionState.INLINE) {
             handleAsyncException();
             return true;

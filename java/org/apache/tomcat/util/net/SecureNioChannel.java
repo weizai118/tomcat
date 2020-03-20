@@ -36,6 +36,7 @@ import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
 import org.apache.tomcat.util.buf.ByteBufferUtils;
 import org.apache.tomcat.util.compat.JreCompat;
+import org.apache.tomcat.util.net.NioEndpoint.NioSocketWrapper;
 import org.apache.tomcat.util.net.TLSClientHelloExtractor.ExtractorResult;
 import org.apache.tomcat.util.net.openssl.ciphers.Cipher;
 import org.apache.tomcat.util.res.StringManager;
@@ -67,11 +68,8 @@ public class SecureNioChannel extends NioChannel {
     protected boolean closed = false;
     protected boolean closing = false;
 
-    protected NioSelectorPool pool;
-
-    public SecureNioChannel(SocketChannel channel, SocketBufferHandler bufHandler,
-            NioSelectorPool pool, NioEndpoint endpoint) {
-        super(channel, bufHandler);
+    public SecureNioChannel(SocketBufferHandler bufHandler, NioEndpoint endpoint) {
+        super(bufHandler);
 
         // Create the network buffers (these hold the encrypted data).
         if (endpoint.getSocketProperties().getDirectSslBuffer()) {
@@ -82,14 +80,12 @@ public class SecureNioChannel extends NioChannel {
             netOutBuffer = ByteBuffer.allocate(DEFAULT_NET_BUFFER_SIZE);
         }
 
-        // selector pool for blocking operations
-        this.pool = pool;
         this.endpoint = endpoint;
     }
 
     @Override
-    public void reset() throws IOException {
-        super.reset();
+    public void reset(SocketChannel channel, NioSocketWrapper socketWrapper) throws IOException {
+        super.reset(channel, socketWrapper);
         sslEngine = null;
         sniComplete = false;
         handshakeComplete = false;
@@ -110,28 +106,6 @@ public class SecureNioChannel extends NioChannel {
 //===========================================================================================
 //                  NIO SSL METHODS
 //===========================================================================================
-
-    /**
-     * Flush the channel.
-     *
-     * @param block     Should a blocking write be used?
-     * @param s         The selector to use for blocking, if null then a busy
-     *                  write will be initiated
-     * @param timeout   The timeout for this write operation in milliseconds,
-     *                  -1 means no timeout
-     * @return <code>true</code> if the network buffer has been flushed out and
-     *         is empty else <code>false</code>
-     * @throws IOException If an I/O error occurs during the operation
-     */
-    @Override
-    public boolean flush(boolean block, Selector s, long timeout) throws IOException {
-        if (!block) {
-            flush(netOutBuffer);
-        } else {
-            pool.write(netOutBuffer, this, s, timeout);
-        }
-        return !netOutBuffer.hasRemaining();
-    }
 
     /**
      * Flushes the buffer to the network, non blocking
@@ -514,7 +488,7 @@ public class SecureNioChannel extends NioChannel {
     }
 
     /**
-     * Sends a SSL close message, will not physically close the connection here.
+     * Sends an SSL close message, will not physically close the connection here.
      * <br>To close the connection, you could do something like
      * <pre><code>
      *   close();
@@ -582,8 +556,8 @@ public class SecureNioChannel extends NioChannel {
      * Reads a sequence of bytes from this channel into the given buffer.
      *
      * @param dst The buffer into which bytes are to be transferred
-     * @return The number of bytes read, possibly zero, or <tt>-1</tt> if the
-     *         channel has reached end-of-stream
+     * @return The number of bytes read, possibly zero, or <code>-1</code> if
+     *         the channel has reached end-of-stream
      * @throws IOException If some other I/O error occurs
      * @throws IllegalArgumentException if the destination buffer is different
      *                                  than getBufHandler().getReadBuffer()
@@ -683,13 +657,11 @@ public class SecureNioChannel extends NioChannel {
         int read = 0;
         //the SSL engine result
         SSLEngineResult unwrap;
-        boolean processOverflow = false;
+        OverflowState overflowState = OverflowState.NONE;
         do {
-            boolean useOverflow = false;
-            if (processOverflow) {
-                useOverflow = true;
+            if (overflowState == OverflowState.PROCESSING) {
+                overflowState = OverflowState.DONE;
             }
-            processOverflow = false;
             //prepare the buffer
             netInBuffer.flip();
             //unwrap the data
@@ -700,7 +672,7 @@ public class SecureNioChannel extends NioChannel {
             if (unwrap.getStatus() == Status.OK || unwrap.getStatus() == Status.BUFFER_UNDERFLOW) {
                 //we did receive some data, add it to our total
                 read += unwrap.bytesProduced();
-                if (useOverflow) {
+                if (overflowState == OverflowState.DONE) {
                     // Remove the data read into the overflow buffer
                     read -= getBufHandler().getReadBuffer().position();
                 }
@@ -760,14 +732,15 @@ public class SecureNioChannel extends NioChannel {
                         dsts = dsts2;
                         length++;
                         getBufHandler().configureReadBufferForWrite();
-                        processOverflow = true;
+                        overflowState = OverflowState.PROCESSING;
                     }
                 }
             } else {
                 // Something else went wrong
                 throw new IOException(sm.getString("channel.nio.ssl.unwrapFail", unwrap.getStatus()));
             }
-        } while (netInBuffer.position() != 0 || processOverflow); //continue to unwrapping as long as the input buffer has stuff
+        } while ((netInBuffer.position() != 0 || overflowState == OverflowState.PROCESSING) &&
+                overflowState != OverflowState.DONE);
         return read;
     }
 
@@ -883,5 +856,12 @@ public class SecureNioChannel extends NioChannel {
 
     public ByteBuffer getEmptyBuf() {
         return emptyBuf;
+    }
+
+
+    private enum OverflowState {
+        NONE,
+        PROCESSING,
+        DONE;
     }
 }

@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.servlet.jsp.tagext.FunctionInfo;
+import jakarta.servlet.jsp.tagext.FunctionInfo;
 
 import org.apache.jasper.Constants;
 import org.apache.jasper.JasperException;
@@ -296,7 +296,7 @@ public class ELFunctionMapper {
         }
 
         /*
-         * @return An unique name for a function mapper.
+         * @return A unique name for a function mapper.
          */
         private String getMapName() {
             return "_jspx_fnmap_" + currFunc++;

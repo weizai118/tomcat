@@ -32,6 +32,11 @@
   <!-- They should go in the "/WEB-INF/web.xml" file in your application.   -->
 
 
+  <!-- Set the default request and response character encodings to UTF-8.   -->
+  <request-character-encoding>UTF-8</request-character-encoding>
+  <response-character-encoding>UTF-8</response-character-encoding>
+
+
   <!-- ================== Built In Servlet Definitions ==================== -->
 
 
@@ -4655,10 +4660,6 @@
     </mime-mapping>
     <mime-mapping>
         <extension>z</extension>
-        <mime-type>application/x-compress</mime-type>
-    </mime-mapping>
-    <mime-mapping>
-        <extension>Z</extension>
         <mime-type>application/x-compress</mime-type>
     </mime-mapping>
     <mime-mapping>

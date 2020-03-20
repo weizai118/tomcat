@@ -25,7 +25,6 @@ import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -36,35 +35,35 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.TimeZone;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.naming.NamingException;
 import javax.security.auth.Subject;
-import javax.servlet.AsyncContext;
-import javax.servlet.DispatcherType;
-import javax.servlet.FilterChain;
-import javax.servlet.MultipartConfigElement;
-import javax.servlet.RequestDispatcher;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.ServletInputStream;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletRequestAttributeEvent;
-import javax.servlet.ServletRequestAttributeListener;
-import javax.servlet.ServletResponse;
-import javax.servlet.SessionTrackingMode;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletMapping;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletRequestWrapper;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
-import javax.servlet.http.HttpUpgradeHandler;
-import javax.servlet.http.Part;
-import javax.servlet.http.PushBuilder;
+
+import jakarta.servlet.AsyncContext;
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.MultipartConfigElement;
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletInputStream;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletRequestAttributeEvent;
+import jakarta.servlet.ServletRequestAttributeListener;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.SessionTrackingMode;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletMapping;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpUpgradeHandler;
+import jakarta.servlet.http.Part;
+import jakarta.servlet.http.PushBuilder;
 
 import org.apache.catalina.Container;
 import org.apache.catalina.Context;
@@ -105,10 +104,10 @@ import org.apache.tomcat.util.http.Parameters.FailReason;
 import org.apache.tomcat.util.http.ServerCookie;
 import org.apache.tomcat.util.http.ServerCookies;
 import org.apache.tomcat.util.http.fileupload.FileItem;
-import org.apache.tomcat.util.http.fileupload.FileUploadBase;
-import org.apache.tomcat.util.http.fileupload.FileUploadBase.InvalidContentTypeException;
 import org.apache.tomcat.util.http.fileupload.FileUploadException;
 import org.apache.tomcat.util.http.fileupload.disk.DiskFileItemFactory;
+import org.apache.tomcat.util.http.fileupload.impl.InvalidContentTypeException;
+import org.apache.tomcat.util.http.fileupload.impl.SizeException;
 import org.apache.tomcat.util.http.fileupload.servlet.ServletFileUpload;
 import org.apache.tomcat.util.http.fileupload.servlet.ServletRequestContext;
 import org.apache.tomcat.util.http.parser.AcceptLanguage;
@@ -137,11 +136,6 @@ public class Request implements HttpServletRequest {
      */
     public Request(Connector connector) {
         this.connector = connector;
-
-        formats = new SimpleDateFormat[formatsTemplate.length];
-        for(int i = 0; i < formats.length; i++) {
-            formats[i] = (SimpleDateFormat) formatsTemplate[i].clone();
-        }
     }
 
 
@@ -176,13 +170,6 @@ public class Request implements HttpServletRequest {
     // ----------------------------------------------------- Variables
 
     /**
-     * @deprecated Unused. This will be removed in Tomcat 10.
-     */
-    @Deprecated
-    protected static final TimeZone GMT_ZONE = TimeZone.getTimeZone("GMT");
-
-
-    /**
      * The string manager for this package.
      */
     protected static final StringManager sm = StringManager.getManager(Request.class);
@@ -192,25 +179,6 @@ public class Request implements HttpServletRequest {
      * The set of cookies associated with this Request.
      */
     protected Cookie[] cookies = null;
-
-
-    /**
-     * The set of SimpleDateFormat formats to use in getDateHeader().
-     *
-     * Notice that because SimpleDateFormat is not thread-safe, we can't
-     * declare formats[] as a static variable.
-     *
-     * @deprecated Unused. This will be removed in Tomcat 10
-     */
-    @Deprecated
-    protected final SimpleDateFormat formats[];
-
-    @Deprecated
-    private static final SimpleDateFormat formatsTemplate[] = {
-        new SimpleDateFormat(FastHttpDateFormat.RFC1123_DATE, Locale.US),
-        new SimpleDateFormat("EEEEEE, dd-MMM-yy HH:mm:ss zzz", Locale.US),
-        new SimpleDateFormat("EEE MMMM d HH:mm:ss yyyy", Locale.US)
-    };
 
 
     /**
@@ -284,7 +252,7 @@ public class Request implements HttpServletRequest {
 
 
     /**
-     * Using writer flag.
+     * Using reader flag.
      */
     protected boolean usingReader = false;
 
@@ -495,7 +463,7 @@ public class Request implements HttpServletRequest {
         recycleSessionInfo();
         recycleCookieInfo(false);
 
-        if (Globals.IS_SECURITY_ENABLED || Connector.RECYCLE_FACADES) {
+        if (getDiscardFacades()) {
             parameterMap = new ParameterMap<>();
         } else {
             parameterMap.setLocked(false);
@@ -506,7 +474,7 @@ public class Request implements HttpServletRequest {
         applicationMapping.recycle();
 
         applicationRequest = null;
-        if (Globals.IS_SECURITY_ENABLED || Connector.RECYCLE_FACADES) {
+        if (getDiscardFacades()) {
             if (facade != null) {
                 facade.clear();
                 facade = null;
@@ -582,6 +550,16 @@ public class Request implements HttpServletRequest {
      */
     public Context getContext() {
         return mappingData.context;
+    }
+
+
+    /**
+     * Get the recycling strategy of the facade objects.
+     * @return the value of the flag as set on the connector, or
+     *   <code>true</code> if no connector is associated with this request
+     */
+    public boolean getDiscardFacades() {
+        return (connector == null) ? true : connector.getDiscardFacades();
     }
 
 
@@ -2658,13 +2636,6 @@ public class Request implements HttpServletRequest {
     }
 
 
-    /**
-     * Changes the session ID of the session associated with this request.
-     *
-     * @return the old session ID before it was changed
-     * @see javax.servlet.http.HttpSessionIdListener
-     * @since Servlet 3.1
-     */
     @Override
     public String changeSessionId() {
 
@@ -2675,9 +2646,8 @@ public class Request implements HttpServletRequest {
         }
 
         Manager manager = this.getContext().getManager();
-        manager.changeSessionId(session);
 
-        String newSessionId = session.getId();
+        String newSessionId = manager.rotateSessionId(session);
         this.changeSessionId(newSessionId);
 
         return newSessionId;
@@ -2906,7 +2876,7 @@ public class Request implements HttpServletRequest {
             } catch (InvalidContentTypeException e) {
                 parameters.setParseFailedReason(FailReason.INVALID_CONTENT_TYPE);
                 partsParseException = new ServletException(e);
-            } catch (FileUploadBase.SizeException e) {
+            } catch (SizeException e) {
                 parameters.setParseFailedReason(FailReason.POST_TOO_LARGE);
                 checkSwallowInput();
                 partsParseException = new IllegalStateException(e);
@@ -3521,9 +3491,5 @@ public class Request implements HttpServletRequest {
                         // NO-OP
                     }
                 });
-
-        for (SimpleDateFormat sdf : formatsTemplate) {
-            sdf.setTimeZone(GMT_ZONE);
-        }
     }
 }

@@ -25,6 +25,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.Permission;
+import java.util.ArrayList;
 import java.util.EmptyStackException;
 import java.util.HashMap;
 import java.util.List;
@@ -32,6 +33,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.PropertyPermission;
 import java.util.Set;
+import java.util.StringTokenizer;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
@@ -41,6 +43,7 @@ import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
 import org.apache.tomcat.util.ExceptionUtils;
 import org.apache.tomcat.util.IntrospectionUtils;
+import org.apache.tomcat.util.IntrospectionUtils.PropertySource;
 import org.apache.tomcat.util.buf.B2CConverter;
 import org.apache.tomcat.util.res.StringManager;
 import org.apache.tomcat.util.security.PermissionCheck;
@@ -55,6 +58,7 @@ import org.xml.sax.SAXNotSupportedException;
 import org.xml.sax.SAXParseException;
 import org.xml.sax.XMLReader;
 import org.xml.sax.ext.DefaultHandler2;
+import org.xml.sax.ext.EntityResolver2;
 import org.xml.sax.ext.Locator2;
 import org.xml.sax.helpers.AttributesImpl;
 
@@ -82,31 +86,36 @@ public class Digester extends DefaultHandler2 {
 
     // ---------------------------------------------------------- Static Fields
 
-    protected static IntrospectionUtils.PropertySource propertySource;
-    private static boolean propertySourceSet = false;
+    protected static IntrospectionUtils.PropertySource[] propertySources;
+    private static boolean propertySourcesSet = false;
     protected static final StringManager sm = StringManager.getManager(Digester.class);
 
     static {
-        String className = System.getProperty("org.apache.tomcat.util.digester.PROPERTY_SOURCE");
-        IntrospectionUtils.PropertySource source = null;
-        if (className != null) {
-            ClassLoader[] cls = new ClassLoader[] { Digester.class.getClassLoader(),
-                    Thread.currentThread().getContextClassLoader() };
-            for (int i = 0; i < cls.length; i++) {
-                try {
-                    Class<?> clazz = Class.forName(className, true, cls[i]);
-                    source = (IntrospectionUtils.PropertySource)
-                            clazz.getConstructor().newInstance();
-                    break;
-                } catch (Throwable t) {
-                    ExceptionUtils.handleThrowable(t);
-                    LogFactory.getLog(Digester.class).error(sm.getString("digester.propertySourceLoadError", className), t);
+        String classNames = System.getProperty("org.apache.tomcat.util.digester.PROPERTY_SOURCE");
+        ArrayList<IntrospectionUtils.PropertySource> sourcesList = new ArrayList<>();
+        IntrospectionUtils.PropertySource[] sources = null;
+        if (classNames != null) {
+            StringTokenizer classNamesTokenizer = new StringTokenizer(classNames, ",");
+            while (classNamesTokenizer.hasMoreTokens()) {
+                String className = classNamesTokenizer.nextToken().trim();
+                ClassLoader[] cls = new ClassLoader[] { Digester.class.getClassLoader(),
+                        Thread.currentThread().getContextClassLoader() };
+                for (int i = 0; i < cls.length; i++) {
+                    try {
+                        Class<?> clazz = Class.forName(className, true, cls[i]);
+                        sourcesList.add((IntrospectionUtils.PropertySource) clazz.getConstructor().newInstance());
+                        break;
+                    } catch (Throwable t) {
+                        ExceptionUtils.handleThrowable(t);
+                        LogFactory.getLog(Digester.class).error(sm.getString("digester.propertySourceLoadError", className), t);
+                    }
                 }
             }
+            sources = sourcesList.toArray(new IntrospectionUtils.PropertySource[0]);
         }
-        if (source != null) {
-            propertySource = source;
-            propertySourceSet = true;
+        if (sources != null) {
+            propertySources = sources;
+            propertySourcesSet = true;
         }
         if (Boolean.getBoolean("org.apache.tomcat.util.digester.REPLACE_SYSTEM_PROPERTIES")) {
             replaceSystemProperties();
@@ -114,22 +123,36 @@ public class Digester extends DefaultHandler2 {
     }
 
     public static void setPropertySource(IntrospectionUtils.PropertySource propertySource) {
-        if (!propertySourceSet) {
-            Digester.propertySource = propertySource;
-            propertySourceSet = true;
+        if (!propertySourcesSet) {
+            propertySources = new IntrospectionUtils.PropertySource[1];
+            propertySources[0] = propertySource;
+            propertySourcesSet = true;
+        }
+    }
+
+    public static void setPropertySource(IntrospectionUtils.PropertySource[] propertySources) {
+        if (!propertySourcesSet) {
+            Digester.propertySources = propertySources;
+            propertySourcesSet = true;
         }
     }
 
     // --------------------------------------------------- Instance Variables
 
 
-    private class SystemPropertySource implements IntrospectionUtils.PropertySource {
+    private static class SystemPropertySource implements IntrospectionUtils.SecurePropertySource {
+
         @Override
         public String getProperty(String key) {
-            ClassLoader cl = getClassLoader();
-            if (cl instanceof PermissionCheck) {
+            // For backward compatibility
+            return getProperty(key, null);
+        }
+
+        @Override
+        public String getProperty(String key, ClassLoader classLoader) {
+            if (classLoader instanceof PermissionCheck) {
                 Permission p = new PropertyPermission(key, "read");
-                if (!((PermissionCheck) cl).check(p)) {
+                if (!((PermissionCheck) classLoader).check(p)) {
                     return null;
                 }
             }
@@ -138,7 +161,7 @@ public class Digester extends DefaultHandler2 {
     }
 
 
-    protected IntrospectionUtils.PropertySource source[] = new IntrospectionUtils.PropertySource[] {
+    protected IntrospectionUtils.PropertySource[] source = new IntrospectionUtils.PropertySource[] {
             new SystemPropertySource() };
 
 
@@ -240,6 +263,7 @@ public class Digester extends DefaultHandler2 {
      */
     protected ArrayStack<Object> params = new ArrayStack<>();
 
+
     /**
      * The SAXParser we will use to parse the input stream.
      */
@@ -317,25 +341,28 @@ public class Digester extends DefaultHandler2 {
 
 
     public Digester() {
-        propertySourceSet = true;
-        if (propertySource != null) {
-            source = new IntrospectionUtils.PropertySource[] { propertySource, source[0] };
+        propertySourcesSet = true;
+        if (propertySources != null) {
+            ArrayList<IntrospectionUtils.PropertySource> sourcesList = new ArrayList<>();
+            for (IntrospectionUtils.PropertySource cur : propertySources) {
+                sourcesList.add(cur);
+            }
+            sourcesList.add(source[0]);
+            source = sourcesList.toArray(new IntrospectionUtils.PropertySource[0]);
         }
     }
 
 
     public static void replaceSystemProperties() {
         Log log = LogFactory.getLog(Digester.class);
-        if (propertySource != null) {
-            IntrospectionUtils.PropertySource[] propertySources =
-                    new IntrospectionUtils.PropertySource[] { propertySource };
+        if (propertySources != null) {
             Properties properties = System.getProperties();
             Set<String> names = properties.stringPropertyNames();
             for (String name : names) {
                 String value = System.getProperty(name);
                 if (value != null) {
                     try {
-                        String newValue = IntrospectionUtils.replaceProperties(value, null, propertySources);
+                        String newValue = IntrospectionUtils.replaceProperties(value, null, propertySources, null);
                         if (!value.equals(newValue)) {
                             System.setProperty(name, newValue);
                         }
@@ -788,11 +815,19 @@ public class Digester extends DefaultHandler2 {
         reader.setDTDHandler(this);
         reader.setContentHandler(this);
 
+        EntityResolver entityResolver = getEntityResolver();
         if (entityResolver == null) {
-            reader.setEntityResolver(this);
-        } else {
-            reader.setEntityResolver(entityResolver);
+            entityResolver = this;
         }
+
+        // Wrap the resolver so we can perform ${...} property replacement
+        if (entityResolver instanceof EntityResolver2) {
+            entityResolver = new EntityResolver2Wrapper((EntityResolver2) entityResolver, source, classLoader);
+        } else {
+            entityResolver = new EntityResolverWrapper(entityResolver, source, classLoader);
+        }
+
+        reader.setEntityResolver(entityResolver);
 
         reader.setProperty("http://xml.org/sax/properties/lexical-handler", this);
 
@@ -1917,7 +1952,7 @@ public class Digester extends DefaultHandler2 {
         for (int i = 0; i < nAttributes; ++i) {
             String value = newAttrs.getValue(i);
             try {
-                newAttrs.setValue(i, IntrospectionUtils.replaceProperties(value, null, source).intern());
+                newAttrs.setValue(i, IntrospectionUtils.replaceProperties(value, null, source, getClassLoader()).intern());
             } catch (Exception e) {
                 log.warn(sm.getString("digester.failedToUpdateAttributes", newAttrs.getLocalName(i), value), e);
             }
@@ -1936,7 +1971,7 @@ public class Digester extends DefaultHandler2 {
         String in = bodyText.toString();
         String out;
         try {
-            out = IntrospectionUtils.replaceProperties(in, null, source);
+            out = IntrospectionUtils.replaceProperties(in, null, source, getClassLoader());
         } catch (Exception e) {
             return bodyText; // return unchanged data
         }
@@ -1951,4 +1986,62 @@ public class Digester extends DefaultHandler2 {
     }
 
 
+    private static class EntityResolverWrapper implements EntityResolver {
+
+        private final EntityResolver entityResolver;
+        private final PropertySource[] source;
+        private final ClassLoader classLoader;
+
+        public EntityResolverWrapper(EntityResolver entityResolver, PropertySource[] source, ClassLoader classLoader) {
+            this.entityResolver = entityResolver;
+            this.source = source;
+            this.classLoader = classLoader;
+        }
+
+        @Override
+        public InputSource resolveEntity(String publicId, String systemId)
+                throws SAXException, IOException {
+            publicId = replace(publicId);
+            systemId = replace(systemId);
+            return entityResolver.resolveEntity(publicId, systemId);
+        }
+
+        protected String replace(String input) {
+            try {
+                return IntrospectionUtils.replaceProperties(input, null, source, classLoader);
+            } catch (Exception e) {
+                return input;
+            }
+        }
+    }
+
+
+    private static class EntityResolver2Wrapper extends EntityResolverWrapper implements EntityResolver2 {
+
+        private final EntityResolver2 entityResolver2;
+
+        public EntityResolver2Wrapper(EntityResolver2 entityResolver, PropertySource[] source,
+                ClassLoader classLoader) {
+            super(entityResolver, source, classLoader);
+            this.entityResolver2 = entityResolver;
+        }
+
+        @Override
+        public InputSource getExternalSubset(String name, String baseURI)
+                throws SAXException, IOException {
+            name = replace(name);
+            baseURI = replace(baseURI);
+            return entityResolver2.getExternalSubset(name, baseURI);
+        }
+
+        @Override
+        public InputSource resolveEntity(String name, String publicId, String baseURI,
+                String systemId) throws SAXException, IOException {
+            name = replace(name);
+            publicId = replace(publicId);
+            baseURI = replace(baseURI);
+            systemId = replace(systemId);
+            return entityResolver2.resolveEntity(name, publicId, baseURI, systemId);
+        }
+    }
 }

@@ -32,7 +32,8 @@ import javax.security.auth.callback.UnsupportedCallbackException;
 import javax.security.auth.login.FailedLoginException;
 import javax.security.auth.login.LoginException;
 import javax.security.auth.spi.LoginModule;
-import javax.servlet.http.HttpServletRequest;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.catalina.CredentialHandler;
 import org.apache.juli.logging.Log;
@@ -196,7 +197,7 @@ public class JAASMemoryLoginModule extends MemoryRealm implements LoginModule {
             if (principal instanceof GenericPrincipal) {
                 String roles[] = ((GenericPrincipal) principal).getRoles();
                 for (int i = 0; i < roles.length; i++) {
-                    subject.getPrincipals().add(new GenericPrincipal(roles[i], null, null));
+                    subject.getPrincipals().add(new GenericPrincipal(roles[i]));
                 }
 
             }

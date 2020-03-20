@@ -46,17 +46,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.StringTokenizer;
 
-import javax.servlet.DispatcherType;
-import javax.servlet.RequestDispatcher;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.ServletResponse;
-import javax.servlet.ServletResponseWrapper;
-import javax.servlet.UnavailableException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -67,6 +56,18 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
+
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.ServletResponseWrapper;
+import jakarta.servlet.UnavailableException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.catalina.Context;
 import org.apache.catalina.Globals;
@@ -570,7 +571,7 @@ public class DefaultServlet extends HttpServlet {
     protected void sendNotAllowed(HttpServletRequest req, HttpServletResponse resp)
             throws IOException {
         resp.addHeader("Allow", determineMethodsAllowed(req));
-        resp.sendError(WebdavStatus.SC_METHOD_NOT_ALLOWED);
+        resp.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
     }
 
 
@@ -1564,27 +1565,6 @@ public class DefaultServlet extends HttpServlet {
     /**
      * Decide which way to render. HTML or XML.
      *
-     * @param contextPath The path
-     * @param resource    The resource
-     * @param encoding    The encoding to use to process the readme (if any)
-     *
-     * @return the input stream with the rendered output
-     *
-     * @throws IOException an IO error occurred
-     * @throws ServletException rendering error
-     *
-     * @deprecated Use {@link #render(HttpServletRequest, String, WebResource, String)} instead
-     */
-    @Deprecated
-    protected InputStream render(String contextPath, WebResource resource, String encoding)
-        throws IOException, ServletException {
-
-        return render(null, contextPath, resource, encoding);
-    }
-
-    /**
-     * Decide which way to render. HTML or XML.
-     *
      * @param request     The HttpServletRequest being served
      * @param contextPath The path
      * @param resource    The resource
@@ -1606,30 +1586,6 @@ public class DefaultServlet extends HttpServlet {
         return renderXml(request, contextPath, resource, xsltSource, encoding);
     }
 
-
-    /**
-     * Return an InputStream to an XML representation of the contents this
-     * directory.
-     *
-     * @param contextPath Context path to which our internal paths are relative
-     * @param resource    The associated resource
-     * @param xsltSource  The XSL stylesheet
-     * @param encoding    The encoding to use to process the readme (if any)
-     *
-     * @return the XML data
-     *
-     * @throws IOException an IO error occurred
-     * @throws ServletException rendering error
-     * @deprecated Unused. Will be removed in Tomcat 10
-     * @deprecated Use {@link #render(HttpServletRequest, String, WebResource, String)} instead
-     */
-    @Deprecated
-    protected InputStream renderXml(String contextPath, WebResource resource, Source xsltSource,
-            String encoding)
-        throws ServletException, IOException
-    {
-        return renderXml(null, contextPath, resource, xsltSource, encoding);
-    }
 
     /**
      * Return an InputStream to an XML representation of the contents this
@@ -1768,27 +1724,6 @@ public class DefaultServlet extends HttpServlet {
      * Return an InputStream to an HTML representation of the contents of this
      * directory.
      *
-     * @param contextPath Context path to which our internal paths are relative
-     * @param resource    The associated resource
-     * @param encoding    The encoding to use to process the readme (if any)
-     *
-     * @return the HTML data
-     *
-     * @throws IOException an IO error occurred
-     *
-     * @deprecated Unused. Will be removed in Tomcat 10
-     * @deprecated Use {@link #renderHtml(HttpServletRequest, String, WebResource, String)} instead
-     */
-    @Deprecated
-    protected InputStream renderHtml(String contextPath, WebResource resource, String encoding)
-        throws IOException {
-        return renderHtml(null, contextPath, resource, encoding);
-    }
-
-    /**
-     * Return an InputStream to an HTML representation of the contents of this
-     * directory.
-     *
      * @param request     The HttpServletRequest being served
      * @param contextPath Context path to which our internal paths are relative
      * @param resource    The associated resource
@@ -1815,14 +1750,18 @@ public class DefaultServlet extends HttpServlet {
         String rewrittenContextPath =  rewriteUrl(contextPath);
 
         // Render the page header
-        sb.append("<html>\r\n");
+        sb.append("<!doctype html><html>\r\n");
+        /* TODO Activate this as soon as we use smClient with the request locales
+        sb.append("<!doctype html><html lang=\"");
+        sb.append(smClient.getLocale().getLanguage()).append("\">\r\n");
+        */
         sb.append("<head>\r\n");
         sb.append("<title>");
         sb.append(sm.getString("directory.title", directoryWebappPath));
         sb.append("</title>\r\n");
-        sb.append("<STYLE><!--");
+        sb.append("<style>");
         sb.append(org.apache.catalina.util.TomcatCSS.TOMCAT_CSS);
-        sb.append("--></STYLE> ");
+        sb.append("</style> ");
         sb.append("</head>\r\n");
         sb.append("<body>");
         sb.append("<h1>");
@@ -1852,7 +1791,7 @@ public class DefaultServlet extends HttpServlet {
         }
 
         sb.append("</h1>");
-        sb.append("<HR size=\"1\" noshade=\"noshade\">");
+        sb.append("<hr class=\"line\">");
 
         sb.append("<table width=\"100%\" cellspacing=\"0\"" +
                      " cellpadding=\"5\" align=\"center\">\r\n");
@@ -1949,12 +1888,12 @@ public class DefaultServlet extends HttpServlet {
         // Render the page footer
         sb.append("</table>\r\n");
 
-        sb.append("<HR size=\"1\" noshade=\"noshade\">");
+        sb.append("<hr class=\"line\">");
 
         String readme = getReadme(resource, encoding);
         if (readme!=null) {
             sb.append(readme);
-            sb.append("<HR size=\"1\" noshade=\"noshade\">");
+            sb.append("<hr class=\"line\">");
         }
 
         if (showServerInfo) {

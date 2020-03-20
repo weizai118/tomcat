@@ -37,7 +37,7 @@ public final class Globals {
      * if any.
      */
     public static final String CERTIFICATES_ATTR =
-        "javax.servlet.request.X509Certificate";
+        "jakarta.servlet.request.X509Certificate";
 
 
     /**
@@ -46,7 +46,7 @@ public final class Globals {
      * java.lang.String).
      */
     public static final String CIPHER_SUITE_ATTR =
-        "javax.servlet.request.cipher_suite";
+        "jakarta.servlet.request.cipher_suite";
 
 
     /**
@@ -85,7 +85,7 @@ public final class Globals {
      * this SSL connection (as an object of type java.lang.Integer).
      */
     public static final String KEY_SIZE_ATTR =
-        "javax.servlet.request.key_size";
+        "jakarta.servlet.request.key_size";
 
 
     /**
@@ -93,7 +93,7 @@ public final class Globals {
      * for this SSL connection (as an object of type java.lang.String).
      */
     public static final String SSL_SESSION_ID_ATTR =
-        "javax.servlet.request.ssl_session_id";
+        "jakarta.servlet.request.ssl_session_id";
 
 
     /**
@@ -101,7 +101,7 @@ public final class Globals {
      * This one is a Tomcat extension to the Servlet spec.
      */
     public static final String SSL_SESSION_MGR_ATTR =
-        "javax.servlet.request.ssl_session_mgr";
+        "jakarta.servlet.request.ssl_session_mgr";
 
 
     /**
@@ -110,21 +110,6 @@ public final class Globals {
      */
     public static final String NAMED_DISPATCHER_ATTR =
         "org.apache.catalina.NAMED";
-
-
-    /**
-     * The servlet context attribute under which we store a flag used
-     * to mark this request as having been processed by the SSIServlet.
-     * We do this because of the pathInfo mangling happening when using
-     * the CGIServlet in conjunction with the SSI servlet. (value stored
-     * as an object of type String)
-     *
-     * @deprecated Unused. This is no longer used as the CGIO servlet now has
-     *             generic handling for when it is used as an include.
-     *             This will be removed in Tomcat 10
-     */
-    @Deprecated
-    public static final String SSI_FLAG_ATTR = "org.apache.catalina.ssi.SSIServlet";
 
 
     /**
@@ -292,4 +277,12 @@ public final class Globals {
      */
     public static final String CREDENTIAL_HANDLER
             = "org.apache.catalina.CredentialHandler";
+
+
+    /**
+     * Name of the ServletContext attribute under which we store the web
+     * application version string (the text that appears after ## when parallel
+     * deployment is used).
+     */
+    public static final String WEBAPP_VERSION = "org.apache.catalina.webappVersion";
 }

@@ -22,20 +22,20 @@ import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.Locale;
 
-import javax.servlet.RequestDispatcher;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.catalina.connector.Connector;
 import org.apache.catalina.connector.Request;
-import org.apache.coyote.Constants;
 import org.apache.tomcat.util.buf.B2CConverter;
 import org.apache.tomcat.util.buf.UDecoder;
 import org.apache.tomcat.util.http.RequestUtil;
@@ -273,7 +273,7 @@ public class SSIServletExternalResolver implements SSIExternalResolver {
                             queryStringCharset = uriCharset;
                         } else {
                             // Use default as a last resort
-                            queryStringCharset = Constants.DEFAULT_URI_CHARSET;
+                            queryStringCharset = StandardCharsets.UTF_8;
                         }
 
                         retVal = UDecoder.URLDecode(queryString, queryStringCharset);

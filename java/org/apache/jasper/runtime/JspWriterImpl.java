@@ -20,8 +20,8 @@ package org.apache.jasper.runtime;
 import java.io.IOException;
 import java.io.Writer;
 
-import javax.servlet.ServletResponse;
-import javax.servlet.jsp.JspWriter;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.jsp.JspWriter;
 
 import org.apache.jasper.Constants;
 import org.apache.jasper.compiler.Localizer;
@@ -319,8 +319,8 @@ public class JspWriterImpl extends JspWriter {
 
     /**
      * Write a line separator.  The line separator string is defined by the
-     * system property <tt>line.separator</tt>, and is not necessarily a single
-     * newline ('\n') character.
+     * system property <code>line.separator</code>, and is not necessarily a
+     * single newline ('\n') character.
      *
      * @exception  IOException  If an I/O error occurs
      */

@@ -25,6 +25,7 @@ import java.util.HashSet;
 
 import javax.management.ObjectName;
 
+import org.apache.catalina.Globals;
 import org.apache.catalina.LifecycleException;
 import org.apache.catalina.LifecycleState;
 import org.apache.catalina.Service;
@@ -40,6 +41,7 @@ import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
 import org.apache.tomcat.util.IntrospectionUtils;
 import org.apache.tomcat.util.buf.B2CConverter;
+import org.apache.tomcat.util.buf.CharsetUtil;
 import org.apache.tomcat.util.net.SSLHostConfig;
 import org.apache.tomcat.util.net.openssl.OpenSSLImplementation;
 import org.apache.tomcat.util.res.StringManager;
@@ -54,13 +56,6 @@ import org.apache.tomcat.util.res.StringManager;
 public class Connector extends LifecycleMBeanBase  {
 
     private static final Log log = LogFactory.getLog(Connector.class);
-
-
-    /**
-     * Alternate flag to enable recycling of facades.
-     */
-    public static final boolean RECYCLE_FACADES =
-        Boolean.parseBoolean(System.getProperty("org.apache.catalina.connector.RECYCLE_FACADES", "false"));
 
 
     public static final String INTERNAL_EXECUTOR_NAME = "Internal";
@@ -162,6 +157,16 @@ public class Connector extends LifecycleMBeanBase  {
      * the port number specified by the <code>port</code> property is used.
      */
     protected int proxyPort = 0;
+
+
+    /**
+     * The flag that controls recycling of the facades of the request
+     * processing objects. If set to <code>true</code> the object facades
+     * will be discarded when the request is recycled. If the security
+     * manager is enabled, this setting is ignored and object facades are
+     * always discarded.
+     */
+    protected boolean discardFacades = true;
 
 
     /**
@@ -369,6 +374,25 @@ public class Connector extends LifecycleMBeanBase  {
     public void setAsyncTimeout(long asyncTimeout) {
         this.asyncTimeout= asyncTimeout;
         setProperty("asyncTimeout", String.valueOf(asyncTimeout));
+    }
+
+
+    /**
+     * @return <code>true</code> if the object facades are discarded, either
+     *   when the discardFacades value is <code>true</code> or when the
+     *   security manager is enabled.
+     */
+    public boolean getDiscardFacades() {
+        return discardFacades || Globals.IS_SECURITY_ENABLED;
+    }
+
+
+    /**
+     * Set the recycling strategy for the object facades.
+     * @param discardFacades the new value of the flag
+     */
+    public void setDiscardFacades(boolean discardFacades) {
+        this.discardFacades = discardFacades;
     }
 
 
@@ -747,10 +771,14 @@ public class Connector extends LifecycleMBeanBase  {
      */
     public void setURIEncoding(String URIEncoding) {
         try {
-            uriCharset = B2CConverter.getCharset(URIEncoding);
+             Charset charset = B2CConverter.getCharset(URIEncoding);
+             if (!CharsetUtil.isAsciiSuperset(charset)) {
+                 log.error(sm.getString("coyoteConnector.notAsciiSuperset", URIEncoding, uriCharset.name()));
+                 return;
+             }
+             uriCharset = charset;
         } catch (UnsupportedEncodingException e) {
-            log.error(sm.getString("coyoteConnector.invalidEncoding",
-                    URIEncoding, uriCharset.name()), e);
+            log.error(sm.getString("coyoteConnector.invalidEncoding", URIEncoding, uriCharset.name()), e);
         }
     }
 

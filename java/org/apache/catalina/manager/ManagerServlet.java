@@ -38,13 +38,14 @@ import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import javax.naming.Binding;
 import javax.naming.NamingEnumeration;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.ServletInputStream;
-import javax.servlet.UnavailableException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletInputStream;
+import jakarta.servlet.UnavailableException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.catalina.Container;
 import org.apache.catalina.ContainerServlet;
@@ -1166,29 +1167,6 @@ public class ManagerServlet extends HttpServlet implements ContainerServlet {
 
         printResources(writer, "", global, type, smClient);
 
-    }
-
-
-    /**
-     * List the resources of the given context.
-     *
-     * @param writer Writer to render to
-     * @param prefix Path for recursion
-     * @param namingContext The naming context for lookups
-     * @param type Fully qualified class name of the resource type of interest,
-     *  or <code>null</code> to list resources of all types
-     * @param clazz Unused
-     * @param smClient i18n support for current client's locale
-     *
-     * @deprecated Use {@link #printResources(PrintWriter, String,
-     *             javax.naming.Context, String, StringManager)}
-     *             This method will be removed in Tomcat 10.x onwards
-     */
-    @Deprecated
-    protected void printResources(PrintWriter writer, String prefix,
-            javax.naming.Context namingContext,
-            String type, Class<?> clazz, StringManager smClient) {
-        printResources(writer, prefix, namingContext, type, smClient);
     }
 
 

@@ -30,6 +30,8 @@ import java.util.List;
  */
 public class Constants {
 
+    public static final String SPEC_VERSION = "3.0";
+
     /**
      * The base class of the generated servlets.
      */
@@ -49,9 +51,9 @@ public class Constants {
      * generated code.
      */
     private static final String[] PRIVATE_STANDARD_IMPORTS = {
-        "javax.servlet.*",
-        "javax.servlet.http.*",
-        "javax.servlet.jsp.*"
+        "jakarta.servlet.*",
+        "jakarta.servlet.http.*",
+        "jakarta.servlet.jsp.*"
     };
     public static final List<String> STANDARD_IMPORTS =
         Collections.unmodifiableList(Arrays.asList(PRIVATE_STANDARD_IMPORTS));

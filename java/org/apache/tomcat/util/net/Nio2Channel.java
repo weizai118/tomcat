@@ -29,16 +29,16 @@ import java.util.concurrent.TimeoutException;
 
 /**
  * Base class for a SocketChannel wrapper used by the endpoint.
- * This way, logic for a SSL socket channel remains the same as for
+ * This way, logic for an SSL socket channel remains the same as for
  * a non SSL, making sure we don't need to code for any exception cases.
  */
 public class Nio2Channel implements AsynchronousByteChannel {
 
     protected static final ByteBuffer emptyBuf = ByteBuffer.allocate(0);
 
-    protected AsynchronousSocketChannel sc = null;
-    protected SocketWrapperBase<Nio2Channel> socket = null;
     protected final SocketBufferHandler bufHandler;
+    protected AsynchronousSocketChannel sc = null;
+    protected SocketWrapperBase<Nio2Channel> socketWrapper = null;
 
     public Nio2Channel(SocketBufferHandler bufHandler) {
         this.bufHandler = bufHandler;
@@ -48,14 +48,14 @@ public class Nio2Channel implements AsynchronousByteChannel {
      * Reset the channel.
      *
      * @param channel The new async channel to associate with this NIO2 channel
-     * @param socket  The new socket to associate with this NIO2 channel
+     * @param socketWrapper The new socket to associate with this NIO2 channel
      *
      * @throws IOException If a problem was encountered resetting the channel
      */
-    public void reset(AsynchronousSocketChannel channel, SocketWrapperBase<Nio2Channel> socket)
+    public void reset(AsynchronousSocketChannel channel, SocketWrapperBase<Nio2Channel> socketWrapper)
             throws IOException {
         this.sc = channel;
-        this.socket = socket;
+        this.socketWrapper = socketWrapper;
         bufHandler.reset();
     }
 
@@ -66,8 +66,8 @@ public class Nio2Channel implements AsynchronousByteChannel {
         bufHandler.free();
     }
 
-    public SocketWrapperBase<Nio2Channel> getSocket() {
-        return socket;
+    SocketWrapperBase<Nio2Channel> getSocketWrapper() {
+        return socketWrapper;
     }
 
 
@@ -99,7 +99,7 @@ public class Nio2Channel implements AsynchronousByteChannel {
     /**
      * Tells whether or not this channel is open.
      *
-     * @return <tt>true</tt> if, and only if, this channel is open
+     * @return <code>true</code> if, and only if, this channel is open
      */
     @Override
     public boolean isOpen() {
@@ -248,11 +248,7 @@ public class Nio2Channel implements AsynchronousByteChannel {
         }
     };
 
-    static final Nio2Channel CLOSED_NIO2_CHANNEL = new ClosedNio2Channel();
-    public static class ClosedNio2Channel extends Nio2Channel {
-        public ClosedNio2Channel() {
-            super(SocketBufferHandler.EMPTY);
-        }
+    static final Nio2Channel CLOSED_NIO2_CHANNEL = new Nio2Channel(SocketBufferHandler.EMPTY) {
         @Override
         public void close() throws IOException {
         }
@@ -304,5 +300,5 @@ public class Nio2Channel implements AsynchronousByteChannel {
         public String toString() {
             return "Closed Nio2Channel";
         }
-    }
+    };
 }

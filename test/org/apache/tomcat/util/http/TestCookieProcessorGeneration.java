@@ -16,7 +16,7 @@
  */
 package org.apache.tomcat.util.http;
 
-import javax.servlet.http.Cookie;
+import jakarta.servlet.http.Cookie;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -264,11 +264,17 @@ public class TestCookieProcessorGeneration {
         Assert.assertEquals("foo=bar", legacy.generateHeader(cookie));
         Assert.assertEquals("foo=bar", rfc6265.generateHeader(cookie));
 
-        legacy.setSameSiteCookies("none");
-        rfc6265.setSameSiteCookies("none");
+        legacy.setSameSiteCookies("unset");
+        rfc6265.setSameSiteCookies("unset");
 
         Assert.assertEquals("foo=bar", legacy.generateHeader(cookie));
         Assert.assertEquals("foo=bar", rfc6265.generateHeader(cookie));
+
+        legacy.setSameSiteCookies("none");
+        rfc6265.setSameSiteCookies("none");
+
+        Assert.assertEquals("foo=bar; SameSite=None", legacy.generateHeader(cookie));
+        Assert.assertEquals("foo=bar; SameSite=None", rfc6265.generateHeader(cookie));
 
         legacy.setSameSiteCookies("lax");
         rfc6265.setSameSiteCookies("lax");
@@ -285,11 +291,17 @@ public class TestCookieProcessorGeneration {
         cookie.setSecure(true);
         cookie.setHttpOnly(true);
 
-        legacy.setSameSiteCookies("none");
-        rfc6265.setSameSiteCookies("none");
+        legacy.setSameSiteCookies("unset");
+        rfc6265.setSameSiteCookies("unset");
 
         Assert.assertEquals("foo=bar; Secure; HttpOnly", legacy.generateHeader(cookie));
         Assert.assertEquals("foo=bar; Secure; HttpOnly", rfc6265.generateHeader(cookie));
+
+        legacy.setSameSiteCookies("none");
+        rfc6265.setSameSiteCookies("none");
+
+        Assert.assertEquals("foo=bar; Secure; HttpOnly; SameSite=None", legacy.generateHeader(cookie));
+        Assert.assertEquals("foo=bar; Secure; HttpOnly; SameSite=None", rfc6265.generateHeader(cookie));
 
         legacy.setSameSiteCookies("lax");
         rfc6265.setSameSiteCookies("lax");

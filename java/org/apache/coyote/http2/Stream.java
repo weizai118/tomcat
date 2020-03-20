@@ -129,8 +129,8 @@ class Stream extends AbstractStream implements HeaderEmitter {
         this.coyoteResponse.setOutputBuffer(http2OutputBuffer);
         this.coyoteRequest.setResponse(coyoteResponse);
         this.coyoteRequest.protocol().setString("HTTP/2.0");
-        if (this.coyoteRequest.getStartTime() < 0) {
-            this.coyoteRequest.setStartTime(System.currentTimeMillis());
+        if (this.coyoteRequest.getStartTimeNanos() < 0) {
+            this.coyoteRequest.setStartTimeNanos(System.nanoTime());
         }
     }
 
@@ -958,10 +958,15 @@ class Stream extends AbstractStream implements HeaderEmitter {
         }
 
         final synchronized boolean isReady() {
-            if (getWindowSize() > 0 && handler.getWindowSize() > 0 && !dataLeft) {
-                return true;
-            } else {
+            // Bug 63682
+            // Only want to return false if the window size is zero AND we are
+            // already waiting for an allocation.
+            if (getWindowSize() > 0 && allocationManager.isWaitingForStream() ||
+                    handler.getWindowSize() > 0 && allocationManager.isWaitingForConnection() ||
+                    dataLeft) {
                 return false;
+            } else {
+                return true;
             }
         }
 

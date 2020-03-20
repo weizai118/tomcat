@@ -26,11 +26,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.RequestDispatcher;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -200,9 +200,9 @@ public abstract class DefaultServletEncodingBaseTest extends TomcatBaseTest {
         int rc = getUrl(target, res, headers);
 
         Assert.assertEquals(HttpServletResponse.SC_OK, rc);
-        List<String> values = headers.get("Content-Type");
-        if (values != null && values.size() == 1) {
-            MediaType mediaType = MediaType.parseMediaType(new StringReader(values.get(0)));
+        String contentType = getSingleHeader("Content-Type", headers);
+        if (contentType != null) {
+            MediaType mediaType = MediaType.parseMediaType(new StringReader(contentType));
             String charset = mediaType.getCharset();
             if (charset == null) {
                 res.setCharset(B2CConverter.getCharset(outputEncoding));

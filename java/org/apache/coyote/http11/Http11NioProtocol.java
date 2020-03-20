@@ -46,18 +46,6 @@ public class Http11NioProtocol extends AbstractHttp11JsseProtocol<NioChannel> {
 
     // -------------------- Pool setup --------------------
 
-    /**
-     * NO-OP.
-     *
-     * @param count Unused
-     */
-    public void setPollerThreadCount(int count) {
-    }
-
-    public int getPollerThreadCount() {
-        return 1;
-    }
-
     public void setSelectorTimeout(long timeout) {
         ((NioEndpoint)getEndpoint()).setSelectorTimeout(timeout);
     }

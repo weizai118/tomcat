@@ -29,9 +29,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
 import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
@@ -58,6 +55,7 @@ public abstract class SocketWrapperBase<E> {
     private volatile boolean upgraded = false;
     private boolean secure = false;
     private String negotiatedProtocol = null;
+
     /*
      * Following cached for speed / reduced GC
      */
@@ -67,14 +65,8 @@ public abstract class SocketWrapperBase<E> {
     protected String remoteAddr = null;
     protected String remoteHost = null;
     protected int remotePort = -1;
-    /*
-     * Used if block/non-blocking is set at the socket level. The client is
-     * responsible for the thread-safe use of this field via the locks provided.
-     */
-    private volatile boolean blockingStatus = true;
-    private final Lock blockingStatusReadLock;
-    private final WriteLock blockingStatusWriteLock;
-    /*
+
+    /**
      * Used to record the first IOException that occurs during non-blocking
      * read/writes that can't be usefully propagated up the stack since there is
      * no user code or appropriate container code in the stack to handle it.
@@ -103,17 +95,23 @@ public abstract class SocketWrapperBase<E> {
      */
     protected final WriteBuffer nonBlockingWriteBuffer = new WriteBuffer(bufferedWriteSize);
 
+    /*
+     * Asynchronous operations.
+     */
     protected final Semaphore readPending;
     protected volatile OperationState<?> readOperation = null;
     protected final Semaphore writePending;
     protected volatile OperationState<?> writeOperation = null;
 
+    /**
+     * The org.apache.coyote.Processor instance currently associated
+     * with the wrapper.
+     */
+    protected Object currentProcessor = null;
+
     public SocketWrapperBase(E socket, AbstractEndpoint<E,?> endpoint) {
         this.socket = socket;
         this.endpoint = endpoint;
-        ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-        this.blockingStatusReadLock = lock.readLock();
-        this.blockingStatusWriteLock = lock.writeLock();
         if (endpoint.getUseAsyncIO() || needSemaphores()) {
             readPending = new Semaphore(1);
             writePending = new Semaphore(1);
@@ -133,6 +131,14 @@ public abstract class SocketWrapperBase<E> {
 
     protected AbstractEndpoint<E,?> getEndpoint() {
         return endpoint;
+    }
+
+    public Object getCurrentProcessor() {
+        return currentProcessor;
+    }
+
+    public void setCurrentProcessor(Object currentProcessor) {
+        this.currentProcessor = currentProcessor;
     }
 
     /**
@@ -212,13 +218,9 @@ public abstract class SocketWrapperBase<E> {
         return this.writeTimeout;
     }
 
-    public void setKeepAliveLeft(int keepAliveLeft) {
-        this.keepAliveLeft = keepAliveLeft;
-    }
 
-    public int decrementKeepAlive() {
-        return --keepAliveLeft;
-    }
+    public void setKeepAliveLeft(int keepAliveLeft) { this.keepAliveLeft = keepAliveLeft; }
+    public int decrementKeepAlive() { return (--keepAliveLeft); }
 
     public String getRemoteHost() {
         if (remoteHost == null) {
@@ -268,14 +270,6 @@ public abstract class SocketWrapperBase<E> {
     }
     protected abstract void populateLocalPort();
 
-    public boolean getBlockingStatus() { return blockingStatus; }
-    public void setBlockingStatus(boolean blockingStatus) {
-        this.blockingStatus = blockingStatus;
-    }
-    public Lock getBlockingStatusReadLock() { return blockingStatusReadLock; }
-    public WriteLock getBlockingStatusWriteLock() {
-        return blockingStatusWriteLock;
-    }
     public SocketBufferHandler getSocketBufferHandler() { return socketBufferHandler; }
 
     public boolean hasDataToRead() {
@@ -380,8 +374,7 @@ public abstract class SocketWrapperBase<E> {
      */
     public void unRead(ByteBuffer returnedInput) {
         if (returnedInput != null) {
-            socketBufferHandler.configureReadBufferForWrite();
-            socketBufferHandler.getReadBuffer().put(returnedInput);
+            socketBufferHandler.unReadReadBuffer(returnedInput);
         }
     }
 
@@ -391,7 +384,17 @@ public abstract class SocketWrapperBase<E> {
      */
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            doClose();
+            try {
+                getEndpoint().getHandler().release(this);
+            } catch (Throwable e) {
+                ExceptionUtils.handleThrowable(e);
+                if (log.isDebugEnabled()) {
+                    log.error(sm.getString("endpoint.debug.handlerRelease"), e);
+                }
+            } finally {
+                getEndpoint().countDownConnection();
+                doClose();
+            }
         }
     }
 
@@ -521,14 +524,17 @@ public abstract class SocketWrapperBase<E> {
      * @throws IOException If an IO error occurs during the write
      */
     protected void writeBlocking(byte[] buf, int off, int len) throws IOException {
-        socketBufferHandler.configureWriteBufferForWrite();
-        int thisTime = transfer(buf, off, len, socketBufferHandler.getWriteBuffer());
-        while (socketBufferHandler.getWriteBuffer().remaining() == 0) {
-            len = len - thisTime;
-            off = off + thisTime;
-            doWrite(true);
+        if (len > 0) {
             socketBufferHandler.configureWriteBufferForWrite();
-            thisTime = transfer(buf, off, len, socketBufferHandler.getWriteBuffer());
+            int thisTime = transfer(buf, off, len, socketBufferHandler.getWriteBuffer());
+            len -= thisTime;
+            while (len > 0) {
+                off += thisTime;
+                doWrite(true);
+                socketBufferHandler.configureWriteBufferForWrite();
+                thisTime = transfer(buf, off, len, socketBufferHandler.getWriteBuffer());
+                len -= thisTime;
+            }
         }
     }
 
@@ -547,48 +553,14 @@ public abstract class SocketWrapperBase<E> {
      * @throws IOException If an IO error occurs during the write
      */
     protected void writeBlocking(ByteBuffer from) throws IOException {
-        if (socketBufferHandler.isWriteBufferEmpty()) {
-            // Socket write buffer is empty. Write the provided buffer directly
-            // to the network.
-            // TODO Shouldn't smaller writes be buffered anyway?
-            writeBlockingDirect(from);
-        } else {
-            // Socket write buffer has some data.
+        if (from.hasRemaining()) {
             socketBufferHandler.configureWriteBufferForWrite();
-            // Put as much data as possible into the write buffer
             transfer(from, socketBufferHandler.getWriteBuffer());
-            // If the buffer is now full, write it to the network and then write
-            // the remaining data directly to the network.
-            if (!socketBufferHandler.isWriteBufferWritable()) {
+            while (from.hasRemaining()) {
                 doWrite(true);
-                writeBlockingDirect(from);
+                socketBufferHandler.configureWriteBufferForWrite();
+                transfer(from, socketBufferHandler.getWriteBuffer());
             }
-        }
-    }
-
-
-    /**
-     * Writes directly to the network, bypassing the socket write buffer.
-     *
-     * @param from The ByteBuffer containing the data to be written
-     *
-     * @throws IOException If an IO error occurs during the write
-     */
-    protected void writeBlockingDirect(ByteBuffer from) throws IOException {
-        // The socket write buffer capacity is socket.appWriteBufSize
-        // TODO This only matters when using TLS. For non-TLS connections it
-        //      should be possible to write the ByteBuffer in a single write
-        int limit = socketBufferHandler.getWriteBuffer().capacity();
-        int fromLimit = from.limit();
-        while (from.remaining() >= limit) {
-            from.limit(from.position() + limit);
-            doWrite(true, from);
-            from.limit(fromLimit);
-        }
-
-        if (from.remaining() > 0) {
-            socketBufferHandler.configureWriteBufferForWrite();
-            transfer(from, socketBufferHandler.getWriteBuffer());
         }
     }
 
@@ -611,11 +583,12 @@ public abstract class SocketWrapperBase<E> {
      * @throws IOException If an IO error occurs during the write
      */
     protected void writeNonBlocking(byte[] buf, int off, int len) throws IOException {
-        if (nonBlockingWriteBuffer.isEmpty() && socketBufferHandler.isWriteBufferWritable()) {
+        if (len > 0 && nonBlockingWriteBuffer.isEmpty()
+                && socketBufferHandler.isWriteBufferWritable()) {
             socketBufferHandler.configureWriteBufferForWrite();
             int thisTime = transfer(buf, off, len, socketBufferHandler.getWriteBuffer());
-            len = len - thisTime;
-            while (!socketBufferHandler.isWriteBufferWritable()) {
+            len -= thisTime;
+            while (len > 0) {
                 off = off + thisTime;
                 doWrite(false);
                 if (len > 0 && socketBufferHandler.isWriteBufferWritable()) {
@@ -627,7 +600,7 @@ public abstract class SocketWrapperBase<E> {
                     // else to do here. Exit the loop.
                     break;
                 }
-                len = len - thisTime;
+                len -= thisTime;
             }
         }
 
@@ -656,11 +629,12 @@ public abstract class SocketWrapperBase<E> {
     protected void writeNonBlocking(ByteBuffer from)
             throws IOException {
 
-        if (nonBlockingWriteBuffer.isEmpty() && socketBufferHandler.isWriteBufferWritable()) {
+        if (from.hasRemaining() && nonBlockingWriteBuffer.isEmpty()
+                && socketBufferHandler.isWriteBufferWritable()) {
             writeNonBlockingInternal(from);
         }
 
-        if (from.remaining() > 0) {
+        if (from.hasRemaining()) {
             // Remaining data must be buffered
             nonBlockingWriteBuffer.add(from);
         }
@@ -676,43 +650,16 @@ public abstract class SocketWrapperBase<E> {
      * @throws IOException If an IO error occurs during the write
      */
     protected void writeNonBlockingInternal(ByteBuffer from) throws IOException {
-        if (socketBufferHandler.isWriteBufferEmpty()) {
-            writeNonBlockingDirect(from);
-        } else {
-            socketBufferHandler.configureWriteBufferForWrite();
-            transfer(from, socketBufferHandler.getWriteBuffer());
-            if (!socketBufferHandler.isWriteBufferWritable()) {
-                doWrite(false);
-                if (socketBufferHandler.isWriteBufferWritable()) {
-                    writeNonBlockingDirect(from);
-                }
+        socketBufferHandler.configureWriteBufferForWrite();
+        transfer(from, socketBufferHandler.getWriteBuffer());
+        while (from.hasRemaining()) {
+            doWrite(false);
+            if (socketBufferHandler.isWriteBufferWritable()) {
+                socketBufferHandler.configureWriteBufferForWrite();
+                transfer(from, socketBufferHandler.getWriteBuffer());
+            } else {
+                break;
             }
-        }
-    }
-
-
-    protected void writeNonBlockingDirect(ByteBuffer from) throws IOException {
-        // The socket write buffer capacity is socket.appWriteBufSize
-        // TODO This only matters when using TLS. For non-TLS connections it
-        //      should be possible to write the ByteBuffer in a single write
-        int limit = socketBufferHandler.getWriteBuffer().capacity();
-        int fromLimit = from.limit();
-        while (from.remaining() >= limit) {
-            int newLimit = from.position() + limit;
-            from.limit(newLimit);
-            doWrite(false, from);
-            from.limit(fromLimit);
-            if (from.position() != newLimit) {
-                // Didn't write the whole amount of data in the last
-                // non-blocking write.
-                // Exit the loop.
-                return;
-            }
-        }
-
-        if (from.remaining() > 0) {
-            socketBufferHandler.configureWriteBufferForWrite();
-            transfer(from, socketBufferHandler.getWriteBuffer());
         }
     }
 
@@ -1012,6 +959,7 @@ public abstract class SocketWrapperBase<E> {
         protected final CompletionHandler<Long, ? super A> handler;
         protected final Semaphore semaphore;
         protected final VectoredIOCompletionHandler<A> completion;
+        protected final AtomicBoolean callHandler;
         protected OperationState(boolean read, ByteBuffer[] buffers, int offset, int length,
                 BlockingMode block, long timeout, TimeUnit unit, A attachment,
                 CompletionCheck check, CompletionHandler<Long, ? super A> handler,
@@ -1028,6 +976,7 @@ public abstract class SocketWrapperBase<E> {
             this.handler = handler;
             this.semaphore = semaphore;
             this.completion = completion;
+            callHandler = (handler != null) ? new AtomicBoolean(true) : null;
         }
         protected volatile long nBytes = 0;
         protected volatile CompletionState state = CompletionState.PENDING;
@@ -1110,7 +1059,7 @@ public abstract class SocketWrapperBase<E> {
                         state.state = currentState;
                     }
                     state.end();
-                    if (completion && state.handler != null) {
+                    if (completion && state.handler != null && state.callHandler.compareAndSet(true, false)) {
                         state.handler.completed(Long.valueOf(state.nBytes), state.attachment);
                     }
                     synchronized (state) {
@@ -1151,7 +1100,7 @@ public abstract class SocketWrapperBase<E> {
                 state.state = state.isInline() ? CompletionState.ERROR : CompletionState.DONE;
             }
             state.end();
-            if (state.handler != null) {
+            if (state.handler != null && state.callHandler.compareAndSet(true, false)) {
                 state.handler.failed(exc, state.attachment);
             }
             synchronized (state) {
@@ -1208,36 +1157,6 @@ public abstract class SocketWrapperBase<E> {
      */
     public boolean isWritePending() {
         return false;
-    }
-
-    /**
-     * If an asynchronous read operation is pending, this method will block
-     * until the operation completes, or the specified amount of time
-     * has passed.
-     * @param timeout The maximum amount of time to wait
-     * @param unit The unit for the timeout
-     * @return <code>true</code> if the read operation is complete,
-     *  <code>false</code> if the operation is still pending and
-     *  the specified timeout has passed
-     */
-    @Deprecated
-    public boolean awaitReadComplete(long timeout, TimeUnit unit) {
-        return true;
-    }
-
-    /**
-     * If an asynchronous write operation is pending, this method will block
-     * until the operation completes, or the specified amount of time
-     * has passed.
-     * @param timeout The maximum amount of time to wait
-     * @param unit The unit for the timeout
-     * @return <code>true</code> if the read operation is complete,
-     *  <code>false</code> if the operation is still pending and
-     *  the specified timeout has passed
-     */
-    @Deprecated
-    public boolean awaitWriteComplete(long timeout, TimeUnit unit) {
-        return true;
     }
 
     /**
@@ -1481,10 +1400,15 @@ public abstract class SocketWrapperBase<E> {
                     try {
                         state.wait(unit.toMillis(timeout));
                         if (state.state == CompletionState.PENDING) {
+                            if (handler != null && state.callHandler.compareAndSet(true, false)) {
+                                handler.failed(new SocketTimeoutException(), attachment);
+                            }
                             return CompletionState.ERROR;
                         }
                     } catch (InterruptedException e) {
-                        completion.failed(new SocketTimeoutException(), state);
+                        if (handler != null && state.callHandler.compareAndSet(true, false)) {
+                            handler.failed(new SocketTimeoutException(), attachment);
+                        }
                         return CompletionState.ERROR;
                     }
                 }
@@ -1518,5 +1442,14 @@ public abstract class SocketWrapperBase<E> {
             from.limit(fromLimit);
         }
         return max;
+    }
+
+    protected static boolean buffersArrayHasRemaining(ByteBuffer[] buffers, int offset, int length) {
+        for (int pos = offset; pos < offset + length; pos++) {
+            if (buffers[pos].hasRemaining()) {
+                return true;
+            }
+        }
+        return false;
     }
 }

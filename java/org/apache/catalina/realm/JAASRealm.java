@@ -33,7 +33,8 @@ import javax.security.auth.login.CredentialExpiredException;
 import javax.security.auth.login.FailedLoginException;
 import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
-import javax.servlet.http.HttpServletRequest;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.catalina.Container;
 import org.apache.catalina.LifecycleException;
@@ -572,7 +573,7 @@ public class JAASRealm extends RealmBase {
         }
 
         // Return the resulting Principal for our authenticated user
-        return new GenericPrincipal(username, null, roles, userPrincipal,
+        return new GenericPrincipal(username, roles, userPrincipal,
                 loginContext);
     }
 

@@ -24,8 +24,8 @@ import java.io.Writer;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 
-import javax.servlet.jsp.JspWriter;
-import javax.servlet.jsp.tagext.BodyContent;
+import jakarta.servlet.jsp.JspWriter;
+import jakarta.servlet.jsp.tagext.BodyContent;
 
 import org.apache.jasper.Constants;
 import org.apache.jasper.compiler.Localizer;
@@ -208,8 +208,8 @@ public class BodyContentImpl extends BodyContent {
 
     /**
      * Write a line separator.  The line separator string is defined by the
-     * system property <tt>line.separator</tt>, and is not necessarily a single
-     * newline ('\n') character.
+     * system property <code>line.separator</code>, and is not necessarily a
+     * single newline ('\n') character.
      *
      * @throws IOException Error writing to wrapped writer
      */

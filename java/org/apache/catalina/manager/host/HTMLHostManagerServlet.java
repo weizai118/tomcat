@@ -26,9 +26,9 @@ import java.text.MessageFormat;
 import java.util.Map;
 import java.util.TreeMap;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.catalina.Container;
 import org.apache.catalina.Host;
@@ -43,7 +43,7 @@ import org.apache.tomcat.util.security.Escape;
 * this requirement can be relaxed during testing.
 * <p>
 * The difference between the <code>HostManagerServlet</code> and this
-* Servlet is that this Servlet prints out a HTML interface which
+* Servlet is that this Servlet prints out an HTML interface which
 * makes it easier to administrate.
 * <p>
 * However if you use a software that parses the output of
@@ -246,7 +246,7 @@ public final class HTMLHostManagerServlet extends HostManagerServlet {
 
 
     /**
-     * Render a HTML list of the currently active Contexts in our virtual host,
+     * Render an HTML list of the currently active Contexts in our virtual host,
      * and memory and server status information.
      *
      * @param request The request

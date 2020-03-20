@@ -327,7 +327,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
 
     /**
      * The bootstrap class loader used to load the JavaSE classes. In some
-     * implementations this class loader is always <code>null</null> and in
+     * implementations this class loader is always <code>null</code> and in
      * those cases {@link ClassLoader#getParent()} will be called recursively on
      * the system class loader and the last non-null result used.
      */
@@ -2534,7 +2534,36 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
             return false;
 
         char ch;
-        if (name.startsWith("javax")) {
+        if (name.startsWith("jakarta")) {
+            /* 7 == length("jakarta") */
+            if (name.length() == 7) {
+                return false;
+            }
+            ch = name.charAt(7);
+            if (isClassName && ch == '.') {
+                /* 8 == length("jakarta.") */
+                if (name.startsWith("servlet.jsp.jstl.", 8)) {
+                    return false;
+                }
+                if (name.startsWith("el.", 8) ||
+                    name.startsWith("servlet.", 8) ||
+                    name.startsWith("websocket.", 8) ||
+                    name.startsWith("security.auth.message.", 8)) {
+                    return true;
+                }
+            } else if (!isClassName && ch == '/') {
+                /* 8 == length("jakarta/") */
+                if (name.startsWith("servlet/jsp/jstl/", 8)) {
+                    return false;
+                }
+                if (name.startsWith("el/", 8) ||
+                    name.startsWith("servlet/", 8) ||
+                    name.startsWith("websocket/", 8) ||
+                    name.startsWith("security/auth/message/", 8)) {
+                    return true;
+                }
+            }
+        } else if (name.startsWith("javax")) {
             /* 5 == length("javax") */
             if (name.length() == 5) {
                 return false;
@@ -2542,24 +2571,12 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
             ch = name.charAt(5);
             if (isClassName && ch == '.') {
                 /* 6 == length("javax.") */
-                if (name.startsWith("servlet.jsp.jstl.", 6)) {
-                    return false;
-                }
-                if (name.startsWith("el.", 6) ||
-                    name.startsWith("servlet.", 6) ||
-                    name.startsWith("websocket.", 6) ||
-                    name.startsWith("security.auth.message.", 6)) {
+                if (name.startsWith("websocket.", 6)) {
                     return true;
                 }
             } else if (!isClassName && ch == '/') {
                 /* 6 == length("javax/") */
-                if (name.startsWith("servlet/jsp/jstl/", 6)) {
-                    return false;
-                }
-                if (name.startsWith("el/", 6) ||
-                    name.startsWith("servlet/", 6) ||
-                    name.startsWith("websocket/", 6) ||
-                    name.startsWith("security/auth/message/", 6)) {
+                if (name.startsWith("websocket/", 6)) {
                     return true;
                 }
             }

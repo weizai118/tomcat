@@ -18,7 +18,7 @@ package org.apache.tomcat.util.compat;
 
 import java.io.IOException;
 
-class GraalCompat extends JreCompat {
+class GraalCompat extends Jre9Compat {
 
     private static final boolean GRAAL;
 
@@ -35,16 +35,13 @@ class GraalCompat extends JreCompat {
         GRAAL = result;
     }
 
-
     static boolean isSupported() {
         // This property does not exist for a native image
         return GRAAL;
     }
 
-
     @Override
     public void disableCachingForJarUrlConnections() throws IOException {
     }
-
 
 }

@@ -15,7 +15,7 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<project name="Tomcat 9.0 Maven Deployment" default="" basedir="."
+<project name="Tomcat 10.0 Maven Deployment" default="" basedir="."
          xmlns:artifact="urn:maven-artifact-ant"
          xmlns:if="ant:if"
          xmlns:unless="ant:unless">
@@ -291,6 +291,10 @@
                    jarFileName="catalina-tribes.jar"
                 srcJarFileName="catalina-tribes-src.jar"/>
 
+     <doMavenInstall artifactId="tomcat-ssi"
+                   jarFileName="catalina-ssi.jar"
+                srcJarFileName="catalina-ssi-src.jar"/>
+
      <doMavenInstall artifactId="tomcat-storeconfig"
                    jarFileName="catalina-storeconfig.jar"
                 srcJarFileName="catalina-storeconfig-src.jar"/>
@@ -385,6 +389,10 @@
                   jarFileName="catalina-tribes.jar"
                srcJarFileName="catalina-tribes-src.jar"/>
 
+    <doMavenDeploy artifactId="tomcat-ssi"
+                  jarFileName="catalina-ssi.jar"
+               srcJarFileName="catalina-ssi-src.jar"/>
+
     <doMavenDeploy artifactId="tomcat-storeconfig"
                   jarFileName="catalina-storeconfig.jar"
                srcJarFileName="catalina-storeconfig-src.jar"/>
@@ -473,7 +481,7 @@
       <param name="maven.repo.repositoryId"
              value="${maven.snapshot.repo.repositoryId}"/>
       <param name="maven.repo.url" value="${maven.snapshot.repo.url}"/>
-      <param name="maven.deploy.version" value="9.0-SNAPSHOT"/>
+      <param name="maven.deploy.version" value="10.0-SNAPSHOT"/>
       <param name="maven.deploy.binary.version"
              value="${maven.asf.release.deploy.version}-dev"/>
     </antcall>
@@ -513,6 +521,8 @@
     <exec executable="${gpg.exec}" failonerror="true"
           inputstring="${gpg.passphrase}">
       <arg value="--batch"/>
+      <arg value="--pinentry-mode"/>
+      <arg value="loopback"/>
       <arg value="--passphrase-fd"/>
       <arg value="0"/>
       <arg value="-a"/>

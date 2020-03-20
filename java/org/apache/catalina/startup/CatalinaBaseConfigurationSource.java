@@ -24,6 +24,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.InvalidPathException;
 
 import org.apache.tomcat.util.file.ConfigurationSource;
 import org.apache.tomcat.util.res.StringManager;
@@ -92,6 +93,9 @@ public class CatalinaBaseConfigurationSource implements ConfigurationSource {
         if (stream != null) {
             try {
                 return new Resource(stream, getClass().getClassLoader().getResource(name).toURI());
+            } catch (InvalidPathException e) {
+                // Ignore. Some valid file URIs can trigger this.
+                stream.close();
             } catch (URISyntaxException e) {
                 stream.close();
                 throw new IOException(sm.getString("catalinaConfigurationSource.cannotObtainURL", name), e);
@@ -99,7 +103,12 @@ public class CatalinaBaseConfigurationSource implements ConfigurationSource {
         }
 
         // Then try URI.
-        URI uri = getURI(name);
+        URI uri = null;
+        try {
+            uri = getURI(name);
+        } catch (IllegalArgumentException e) {
+            throw new IOException(sm.getString("catalinaConfigurationSource.cannotObtainURL", name), e);
+        }
 
         // Obtain the input stream we need
         try {

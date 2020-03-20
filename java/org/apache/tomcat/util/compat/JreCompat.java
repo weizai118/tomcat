@@ -18,6 +18,7 @@ package org.apache.tomcat.util.compat;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.AccessibleObject;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.Deque;
@@ -39,6 +40,7 @@ public class JreCompat {
 
     private static final JreCompat instance;
     private static final boolean graalAvailable;
+    private static final boolean jre11Available;
     private static final boolean jre9Available;
     private static final StringManager sm = StringManager.getManager(JreCompat.class);
 
@@ -48,7 +50,7 @@ public class JreCompat {
         if (GraalCompat.isSupported()) {
             instance = new GraalCompat();
             graalAvailable = true;
-            jre9Available = false;
+            jre9Available = Jre9Compat.isSupported();
         } else if (Jre9Compat.isSupported()) {
             instance = new Jre9Compat();
             graalAvailable = false;
@@ -58,6 +60,7 @@ public class JreCompat {
             graalAvailable = false;
             jre9Available = false;
         }
+        jre11Available = instance.jarFileRuntimeMajorVersion() >= 11;
     }
 
 
@@ -73,6 +76,11 @@ public class JreCompat {
 
     public static boolean isJre9Available() {
         return jre9Available;
+    }
+
+
+    public static boolean isJre11Available() {
+        return jre11Available;
     }
 
 
@@ -193,5 +201,34 @@ public class JreCompat {
 
     public int jarFileRuntimeMajorVersion() {
         return RUNTIME_MAJOR_VERSION;
+    }
+
+
+    /**
+     * Is the accessibleObject accessible (as a result of appropriate module
+     * exports) on the provided instance?
+     *
+     * @param base  The specific instance to be tested.
+     * @param accessibleObject  The method/field/constructor to be tested.
+     *
+     * @return {code true} if the AccessibleObject can be accessed otherwise
+     *         {code false}
+     */
+    public boolean canAcccess(Object base, AccessibleObject accessibleObject) {
+        // Java 8 doesn't support modules so default to true
+        return true;
+    }
+
+
+    /**
+     * Is the given class in an exported package?
+     *
+     * @param type  The class to test
+     *
+     * @return Always {@code true} for Java 8. {@code true} if the enclosing
+     *         package is exported for Java 9+
+     */
+    public boolean isExported(Class<?> type) {
+        return true;
     }
 }

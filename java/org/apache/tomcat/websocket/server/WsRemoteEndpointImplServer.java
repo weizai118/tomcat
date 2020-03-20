@@ -24,8 +24,8 @@ import java.nio.channels.CompletionHandler;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import javax.websocket.SendHandler;
-import javax.websocket.SendResult;
+import jakarta.websocket.SendHandler;
+import jakarta.websocket.SendResult;
 
 import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
@@ -36,7 +36,7 @@ import org.apache.tomcat.websocket.Transformation;
 import org.apache.tomcat.websocket.WsRemoteEndpointImplBase;
 
 /**
- * This is the server side {@link javax.websocket.RemoteEndpoint} implementation
+ * This is the server side {@link jakarta.websocket.RemoteEndpoint} implementation
  * - i.e. what the server uses to send data to the client.
  */
 public class WsRemoteEndpointImplServer extends WsRemoteEndpointImplBase {
@@ -51,7 +51,6 @@ public class WsRemoteEndpointImplServer extends WsRemoteEndpointImplBase {
     private volatile ByteBuffer[] buffers = null;
 
     private volatile long timeoutExpiry = -1;
-    private volatile boolean close;
 
     public WsRemoteEndpointImplServer(SocketWrapperBase<?> socketWrapper,
             WsServerContainer serverContainer) {
@@ -103,9 +102,6 @@ public class WsRemoteEndpointImplServer extends WsRemoteEndpointImplBase {
                             } else {
                                 wsWriteTimeout.unregister(WsRemoteEndpointImplServer.this);
                                 clearHandler(null, true);
-                                if (close) {
-                                    close();
-                                }
                             }
                         }
                         @Override
@@ -185,9 +181,6 @@ public class WsRemoteEndpointImplServer extends WsRemoteEndpointImplBase {
                     if (complete) {
                         wsWriteTimeout.unregister(this);
                         clearHandler(null, useDispatch);
-                        if (close) {
-                            close();
-                        }
                     }
                     break;
                 }
@@ -264,7 +257,7 @@ public class WsRemoteEndpointImplServer extends WsRemoteEndpointImplBase {
      * @param useDispatch   Should {@link SendHandler#onResult(SendResult)} be
      *                      called from a new thread, keeping in mind the
      *                      requirements of
-     *                      {@link javax.websocket.RemoteEndpoint.Async}
+     *                      {@link jakarta.websocket.RemoteEndpoint.Async}
      */
     private void clearHandler(Throwable t, boolean useDispatch) {
         // Setting the result marks this (partial) message as

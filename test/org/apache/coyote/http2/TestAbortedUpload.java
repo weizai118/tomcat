@@ -20,9 +20,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -30,6 +30,7 @@ import org.junit.Test;
 import org.apache.catalina.Context;
 import org.apache.catalina.LifecycleException;
 import org.apache.catalina.startup.Tomcat;
+import org.apache.coyote.http11.AbstractHttp11Protocol;
 
 public class TestAbortedUpload extends Http2TestBase {
 
@@ -37,7 +38,7 @@ public class TestAbortedUpload extends Http2TestBase {
     public void testAbortedRequest() throws Exception {
         http2Connect();
 
-        http2Protocol.setAllowedTrailerHeaders(TRAILER_HEADER_NAME);
+        ((AbstractHttp11Protocol<?>) http2Protocol.getHttp11Protocol()).setAllowedTrailerHeaders(TRAILER_HEADER_NAME);
 
         int bodySize = 8192;
         int bodyCount = 20;

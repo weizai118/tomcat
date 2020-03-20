@@ -26,12 +26,13 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.management.ObjectName;
-import javax.servlet.ServletContainerInitializer;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletRegistration.Dynamic;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletSecurityElement;
-import javax.servlet.descriptor.JspConfigDescriptor;
+
+import jakarta.servlet.ServletContainerInitializer;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletRegistration.Dynamic;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletSecurityElement;
+import jakarta.servlet.descriptor.JspConfigDescriptor;
 
 import org.apache.catalina.AccessLog;
 import org.apache.catalina.Authenticator;
@@ -811,11 +812,6 @@ public class TesterContext implements Context {
     }
 
     @Override
-    public ErrorPage findErrorPage(String exceptionType) {
-        return null;
-    }
-
-    @Override
     public ErrorPage findErrorPage(Throwable exceptionType) {
         return null;
     }
@@ -872,16 +868,6 @@ public class TesterContext implements Context {
 
     @Override
     public String[] findServletMappings() {
-        return null;
-    }
-
-    @Override
-    public String findStatusPage(int status) {
-        return null;
-    }
-
-    @Override
-    public int[] findStatusPages() {
         return null;
     }
 

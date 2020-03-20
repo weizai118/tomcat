@@ -471,21 +471,9 @@ public class DeltaManager extends ClusterManagerBase{
         return new DeltaSession(this);
     }
 
-    /**
-     * Get new session class to be used in the doLoad() method.
-     *
-     * @return a new session
-     *
-     * @deprecated Unused. This will be removed in Tomcat 10.
-     */
-    @Deprecated
-    protected DeltaSession getNewDeltaSession() {
-        return new DeltaSession(this);
-    }
-
     @Override
-    public void changeSessionId(Session session) {
-        changeSessionId(session, true);
+    public String rotateSessionId(Session session) {
+        return rotateSessionId(session, true);
     }
 
     @Override
@@ -493,10 +481,11 @@ public class DeltaManager extends ClusterManagerBase{
         changeSessionId(session, newId, true);
     }
 
-    protected void changeSessionId(Session session, boolean notify) {
+    protected String rotateSessionId(Session session, boolean notify) {
         String orgSessionID = session.getId();
-        super.changeSessionId(session);
+        String newId = super.rotateSessionId(session);
         if (notify) sendChangeSessionId(session.getId(), orgSessionID);
+        return newId;
     }
 
     protected void changeSessionId(Session session, String newId, boolean notify) {
@@ -551,58 +540,6 @@ public class DeltaManager extends ClusterManagerBase{
         String sessionId = ois.readUTF();
         ois.close();
         return sessionId;
-    }
-
-    /**
-     * Load Deltarequest from external node
-     * Load the Class at container classloader
-     * @see DeltaRequest#readExternal(java.io.ObjectInput)
-     * @param session Corresponding session
-     * @param data message data
-     * @return The request
-     * @throws ClassNotFoundException Serialization error
-     * @throws IOException IO error with serialization
-     *
-     * @deprecated Unused. This will be removed in Tomcat 10.
-     *             Calling this method may result in a deadlock. See:
-     *             https://bz.apache.org/bugzilla/show_bug.cgi?id=62841
-     */
-    @Deprecated
-    protected DeltaRequest deserializeDeltaRequest(DeltaSession session, byte[] data)
-            throws ClassNotFoundException, IOException {
-        session.lock();
-        try {
-            ReplicationStream ois = getReplicationStream(data);
-            session.getDeltaRequest().readExternal(ois);
-            ois.close();
-            return session.getDeltaRequest();
-        } finally {
-            session.unlock();
-        }
-    }
-
-    /**
-     * serialize DeltaRequest
-     * @see DeltaRequest#writeExternal(java.io.ObjectOutput)
-     *
-     * @param session Associated session
-     * @param deltaRequest The request to serialize
-     * @return serialized delta request
-     * @throws IOException IO error with serialization
-     *
-     * @deprecated Unused. This will be removed in Tomcat 10.
-     *             Calling this method may result in a deadlock. See:
-     *             https://bz.apache.org/bugzilla/show_bug.cgi?id=62841
-     */
-    @Deprecated
-    protected byte[] serializeDeltaRequest(DeltaSession session, DeltaRequest deltaRequest)
-            throws IOException {
-        session.lock();
-        try {
-            return deltaRequest.serialize();
-        } finally {
-            session.unlock();
-        }
     }
 
     /**

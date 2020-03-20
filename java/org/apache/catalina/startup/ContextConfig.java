@@ -39,11 +39,11 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import javax.servlet.MultipartConfigElement;
-import javax.servlet.ServletContainerInitializer;
-import javax.servlet.ServletContext;
-import javax.servlet.SessionCookieConfig;
-import javax.servlet.annotation.HandlesTypes;
+import jakarta.servlet.MultipartConfigElement;
+import jakarta.servlet.ServletContainerInitializer;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.SessionCookieConfig;
+import jakarta.servlet.annotation.HandlesTypes;
 
 import org.apache.catalina.Authenticator;
 import org.apache.catalina.Container;
@@ -472,7 +472,7 @@ public class ContextConfig implements LifecycleListener {
 
             String hostContextFile = Container.getConfigPath(context, Constants.HostContextXml);
             try (ConfigurationSource.Resource contextXmlResource =
-                    ConfigFileLoader.getSource().getConfResource(hostContextFile)) {
+                    ConfigFileLoader.getSource().getResource(hostContextFile)) {
                 URL defaultContextUrl = contextXmlResource.getURI().toURL();
                 processContextConfig(digester, defaultContextUrl, contextXmlResource.getInputStream());
             } catch (MalformedURLException e) {
@@ -640,7 +640,6 @@ public class ContextConfig implements LifecycleListener {
                         docBaseAbsolute = ExpandWar.expand(host, war, pathName);
                         docBaseAbsoluteFile = new File(docBaseAbsolute);
                     } else {
-                        docBaseAbsolute = docBaseAbsoluteFileWar.getAbsolutePath();
                         docBaseAbsoluteFile = docBaseAbsoluteFileWar;
                         ExpandWar.validate(host, war, pathName);
                     }
@@ -1600,6 +1599,9 @@ public class ContextConfig implements LifecycleListener {
                 entry = new DefaultWebXmlCacheEntry(webXmlDefaultFragment,
                         globalTimeStamp, hostTimeStamp);
                 hostWebXmlCache.put(host, entry);
+                // Add a Lifecycle listener to the Host that will remove it from
+                // the hostWebXmlCache once the Host is destroyed
+                host.addLifecycleListener(new HostWebXmlCacheCleaner());
             }
 
             return webXmlDefaultFragment;
@@ -1716,6 +1718,7 @@ public class ContextConfig implements LifecycleListener {
         }
     }
 
+
     /**
      * Scan JARs that contain web-fragment.xml files that will be used to
      * configure this application to see if they also contain static resources.
@@ -1784,6 +1787,7 @@ public class ContextConfig implements LifecycleListener {
         }
         return getWebXmlSource(defaultWebXml, true);
     }
+
 
     /**
      * Identify the host web.xml to be used and obtain an input source for
@@ -1898,7 +1902,7 @@ public class ContextConfig implements LifecycleListener {
                 }
             } else {
                 String hostWebXml = Container.getConfigPath(context, Constants.HostWebXml);
-                webXmlResource = ConfigFileLoader.getSource().getConfResource(hostWebXml);
+                webXmlResource = ConfigFileLoader.getSource().getResource(hostWebXml);
             }
         } catch (IOException e) {
             // Ignore if not found
@@ -1957,6 +1961,7 @@ public class ContextConfig implements LifecycleListener {
             // validation is not enabled
             parseRequired = false;
         }
+
         FragmentJarScannerCallback callback =
                 new FragmentJarScannerCallback(webXmlParser, delegate, parseRequired);
 
@@ -2132,11 +2137,11 @@ public class ContextConfig implements LifecycleListener {
             String className = clazz.getClassName();
             for (AnnotationEntry ae : annotationsEntries) {
                 String type = ae.getAnnotationType();
-                if ("Ljavax/servlet/annotation/WebServlet;".equals(type)) {
+                if ("Ljakarta/servlet/annotation/WebServlet;".equals(type)) {
                     processAnnotationWebServlet(className, ae, fragment);
-                }else if ("Ljavax/servlet/annotation/WebFilter;".equals(type)) {
+                }else if ("Ljakarta/servlet/annotation/WebFilter;".equals(type)) {
                     processAnnotationWebFilter(className, ae, fragment);
-                }else if ("Ljavax/servlet/annotation/WebListener;".equals(type)) {
+                }else if ("Ljakarta/servlet/annotation/WebListener;".equals(type)) {
                     fragment.addListener(className);
                 } else {
                     // Unknown annotation - ignore
@@ -2679,6 +2684,18 @@ public class ContextConfig implements LifecycleListener {
 
         public long getHostTimeStamp() {
             return hostTimeStamp;
+        }
+    }
+
+    private static class HostWebXmlCacheCleaner implements LifecycleListener {
+
+        @Override
+        public void lifecycleEvent(LifecycleEvent event) {
+
+            if (Lifecycle.AFTER_DESTROY_EVENT.equals(event.getType())) {
+                Host host = (Host) event.getSource();
+                hostWebXmlCache.remove(host);
+            }
         }
     }
 

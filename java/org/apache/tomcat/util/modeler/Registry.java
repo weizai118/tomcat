@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import javax.management.DynamicMBean;
+import javax.management.InstanceNotFoundException;
 import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanInfo;
 import javax.management.MBeanOperationInfo;
@@ -151,7 +152,7 @@ public class Registry implements RegistryMBean, MBeanRegistration {
     public static synchronized void disableRegistry() {
         if (registry == null) {
             registry = new NoDescriptorRegistry();
-        } else {
+        } else if (!(registry instanceof NoDescriptorRegistry)) {
             log.warn(sm.getString("registry.noDisable"));
         }
     }
@@ -233,8 +234,8 @@ public class Registry implements RegistryMBean, MBeanRegistration {
      * lifecycle operations.
      *
      * @param mbeans list of ObjectName on which we'll invoke the operations
-     * @param operation Name of the operation ( init, start, stop, etc)
-     * @param failFirst If false, exceptions will be ignored
+     * @param operation  Name of the operation ( init, start, stop, etc)
+     * @param failFirst  If false, exceptions will be ignored
      * @throws Exception Error invoking operation
      * @since 1.1
      */
@@ -263,7 +264,6 @@ public class Registry implements RegistryMBean, MBeanRegistration {
         }
     }
 
-
     // -------------------- ID registry --------------------
 
     /**
@@ -272,7 +272,7 @@ public class Registry implements RegistryMBean, MBeanRegistration {
      *
      * @param domain Namespace
      * @param name Type of the notification
-     * @return An unique id for the domain:name combination
+     * @return A unique id for the domain:name combination
      * @since 1.1
      */
     @Override
@@ -397,6 +397,36 @@ public class Registry implements RegistryMBean, MBeanRegistration {
         return null;
     }
 
+    /**
+     * Find the operation info for a method.
+     *
+     * @param oname The bean name
+     * @param opName The operation name
+     * @param argCount The number of arguments to the method
+     * @return the operation info for the specified operation
+     * @throws InstanceNotFoundException If the object name is not bound to an MBean
+     */
+    public MBeanOperationInfo getMethodInfo(ObjectName oname, String opName, int argCount)
+        throws InstanceNotFoundException
+    {
+        MBeanInfo info = null;
+        try {
+            info = getMBeanServer().getMBeanInfo(oname);
+        } catch (InstanceNotFoundException infe) {
+            throw infe;
+        } catch (Exception e) {
+            log.warn(sm.getString("registry.noMetadata", oname), e);
+            return null;
+        }
+        MBeanOperationInfo attInfo[] = info.getOperations();
+        for (int i = 0; i < attInfo.length; i++) {
+            if (opName.equals(attInfo[i].getName())
+                && argCount == attInfo[i].getSignature().length) {
+                return attInfo[i];
+            }
+        }
+        return null;
+    }
 
     /**
      * Unregister a component. This is just a helper that avoids exceptions by

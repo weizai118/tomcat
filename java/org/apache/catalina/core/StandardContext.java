@@ -54,30 +54,31 @@ import javax.management.NotificationEmitter;
 import javax.management.NotificationFilter;
 import javax.management.NotificationListener;
 import javax.naming.NamingException;
-import javax.servlet.Filter;
-import javax.servlet.FilterConfig;
-import javax.servlet.FilterRegistration;
-import javax.servlet.RequestDispatcher;
-import javax.servlet.Servlet;
-import javax.servlet.ServletContainerInitializer;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletContextAttributeListener;
-import javax.servlet.ServletContextEvent;
-import javax.servlet.ServletContextListener;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRegistration;
-import javax.servlet.ServletRegistration.Dynamic;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletRequestAttributeListener;
-import javax.servlet.ServletRequestEvent;
-import javax.servlet.ServletRequestListener;
-import javax.servlet.ServletSecurityElement;
-import javax.servlet.SessionCookieConfig;
-import javax.servlet.SessionTrackingMode;
-import javax.servlet.descriptor.JspConfigDescriptor;
-import javax.servlet.http.HttpSessionAttributeListener;
-import javax.servlet.http.HttpSessionIdListener;
-import javax.servlet.http.HttpSessionListener;
+
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.FilterRegistration;
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.Servlet;
+import jakarta.servlet.ServletContainerInitializer;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletContextAttributeListener;
+import jakarta.servlet.ServletContextEvent;
+import jakarta.servlet.ServletContextListener;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRegistration;
+import jakarta.servlet.ServletRegistration.Dynamic;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletRequestAttributeListener;
+import jakarta.servlet.ServletRequestEvent;
+import jakarta.servlet.ServletRequestListener;
+import jakarta.servlet.ServletSecurityElement;
+import jakarta.servlet.SessionCookieConfig;
+import jakarta.servlet.SessionTrackingMode;
+import jakarta.servlet.descriptor.JspConfigDescriptor;
+import jakarta.servlet.http.HttpSessionAttributeListener;
+import jakarta.servlet.http.HttpSessionIdListener;
+import jakarta.servlet.http.HttpSessionListener;
 
 import org.apache.catalina.Authenticator;
 import org.apache.catalina.Container;
@@ -126,7 +127,6 @@ import org.apache.tomcat.util.descriptor.web.Injectable;
 import org.apache.tomcat.util.descriptor.web.InjectionTarget;
 import org.apache.tomcat.util.descriptor.web.LoginConfig;
 import org.apache.tomcat.util.descriptor.web.MessageDestination;
-import org.apache.tomcat.util.descriptor.web.MessageDestinationRef;
 import org.apache.tomcat.util.descriptor.web.SecurityCollection;
 import org.apache.tomcat.util.descriptor.web.SecurityConstraint;
 import org.apache.tomcat.util.http.CookieProcessor;
@@ -851,6 +851,11 @@ public class StandardContext extends ContainerBase
     @Override
     public void decrementInProgressAsyncCount() {
         inProgressAsyncCount.decrementAndGet();
+    }
+
+
+    public long getInProgressAsyncCount() {
+        return inProgressAsyncCount.get();
     }
 
 
@@ -3057,20 +3062,6 @@ public class StandardContext extends ContainerBase
 
 
     /**
-     * Add a message destination reference for this web application.
-     *
-     * @param mdr New message destination reference
-     *
-     * @deprecated This will be removed in Tomcat 10.
-     *             Use {@link #getNamingResources()} instead
-     */
-    @Deprecated
-    public void addMessageDestinationRef(MessageDestinationRef mdr) {
-        getNamingResources().addMessageDestinationRef(mdr);
-    }
-
-
-    /**
      * Add a new MIME mapping, replacing any existing mapping for
      * the specified extension.
      *
@@ -3376,13 +3367,6 @@ public class StandardContext extends ContainerBase
 
 
     @Override
-    @Deprecated
-    public ErrorPage findErrorPage(String exceptionType) {
-        return errorPageSupport.find(exceptionType);
-    }
-
-
-    @Override
     public ErrorPage findErrorPage(Throwable exceptionType) {
         return errorPageSupport.find(exceptionType);
     }
@@ -3457,35 +3441,6 @@ public class StandardContext extends ContainerBase
                 new MessageDestination[messageDestinations.size()];
             return messageDestinations.values().toArray(results);
         }
-    }
-
-
-    /**
-     * @param name Name of the desired message destination ref
-     *
-     * @return the message destination ref with the specified name, if any;
-     * otherwise, return <code>null</code>.
-     *
-     * @deprecated This will be removed in Tomcat 10.
-     *             Use {@link #getNamingResources()} instead
-     */
-    @Deprecated
-    public MessageDestinationRef findMessageDestinationRef(String name) {
-        return getNamingResources().findMessageDestinationRef(name);
-    }
-
-
-    /**
-     * @return the set of defined message destination refs for this web
-     * application.  If none have been defined, a zero-length array
-     * is returned.
-     *
-     * @deprecated This will be removed in Tomcat 10.
-     *             Use {@link #getNamingResources()} instead
-     */
-    @Deprecated
-    public MessageDestinationRef[] findMessageDestinationRefs() {
-        return getNamingResources().findMessageDestinationRefs();
     }
 
 
@@ -3616,36 +3571,6 @@ public class StandardContext extends ContainerBase
             String results[] = new String[servletMappings.size()];
             return servletMappings.keySet().toArray(results);
         }
-    }
-
-
-    @Override
-    @Deprecated
-    public String findStatusPage(int status) {
-
-        ErrorPage errorPage = findErrorPage(status);
-        if (errorPage != null) {
-            return errorPage.getLocation();
-        }
-        return null;
-    }
-
-
-    @Override
-    @Deprecated
-    public int[] findStatusPages() {
-        ErrorPage[] errorPages = findErrorPages();
-        int size = errorPages.length;
-        int temp[] = new int[size];
-        int count = 0;
-        for (int i = 0; i < size; i++) {
-            if (errorPages[i].getExceptionType() == null) {
-                temp[count++] = errorPages[i].getErrorCode();
-            }
-        }
-        int result[] = new int[count];
-        System.arraycopy(temp, 0, result, 0, count);
-        return result;
     }
 
 
@@ -3966,20 +3891,6 @@ public class StandardContext extends ContainerBase
         }
         fireContainerEvent("removeMessageDestination", name);
 
-    }
-
-
-    /**
-     * Remove any message destination ref with the specified name.
-     *
-     * @param name Name of the message destination ref to remove
-     *
-     * @deprecated This will be removed in Tomcat 10.
-     *             Use {@link #getNamingResources()} instead
-     */
-    @Deprecated
-    public void removeMessageDestinationRef(String name) {
-        getNamingResources().removeMessageDestinationRef(name);
     }
 
 
@@ -4936,7 +4847,7 @@ public class StandardContext extends ContainerBase
         }
 
         if (getLoader() == null) {
-            WebappLoader webappLoader = new WebappLoader(getParentClassLoader());
+            WebappLoader webappLoader = new WebappLoader();
             webappLoader.setDelegate(getDelegate());
             setLoader(webappLoader);
         }
@@ -5106,23 +5017,23 @@ public class StandardContext extends ContainerBase
             }
 
             // We put the resources into the servlet context
-            if (ok)
+            if (ok) {
                 getServletContext().setAttribute
                     (Globals.RESOURCES_ATTR, getResources());
 
-            if (ok ) {
                 if (getInstanceManager() == null) {
                     setInstanceManager(createInstanceManager());
                 }
                 getServletContext().setAttribute(
                         InstanceManager.class.getName(), getInstanceManager());
                 InstanceManagerBindings.bind(getLoader().getClassLoader(), getInstanceManager());
-            }
 
-            // Create context attributes that will be required
-            if (ok) {
+                // Create context attributes that will be required
                 getServletContext().setAttribute(
                         JarScanner.class.getName(), getJarScanner());
+
+                // Make the version info available
+                getServletContext().setAttribute(Globals.WEBAPP_VERSION, getWebappVersion());
             }
 
             // Set up the context init params
@@ -6580,21 +6491,21 @@ public class StandardContext extends ContainerBase
         }
 
         @Override
-        public javax.servlet.FilterRegistration.Dynamic addFilter(
+        public jakarta.servlet.FilterRegistration.Dynamic addFilter(
                 String filterName, String className) {
             throw new UnsupportedOperationException(
                     sm.getString("noPluggabilityServletContext.notAllowed"));
         }
 
         @Override
-        public javax.servlet.FilterRegistration.Dynamic addFilter(
+        public jakarta.servlet.FilterRegistration.Dynamic addFilter(
                 String filterName, Filter filter) {
             throw new UnsupportedOperationException(
                     sm.getString("noPluggabilityServletContext.notAllowed"));
         }
 
         @Override
-        public javax.servlet.FilterRegistration.Dynamic addFilter(
+        public jakarta.servlet.FilterRegistration.Dynamic addFilter(
                 String filterName, Class<? extends Filter> filterClass) {
             throw new UnsupportedOperationException(
                     sm.getString("noPluggabilityServletContext.notAllowed"));

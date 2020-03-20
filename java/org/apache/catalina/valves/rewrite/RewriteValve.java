@@ -29,9 +29,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.catalina.Container;
 import org.apache.catalina.Context;
@@ -136,7 +136,6 @@ public class RewriteValve extends ValveBase {
     protected synchronized void startInternal() throws LifecycleException {
 
         super.startInternal();
-        context = (getContainer() instanceof Context);
 
         InputStream is = null;
 
@@ -155,7 +154,7 @@ public class RewriteValve extends ValveBase {
         } else {
             String resourceName = Container.getConfigPath(getContainer(), resourcePath);
             try {
-                ConfigurationSource.Resource resource = ConfigFileLoader.getSource().getConfResource(resourceName);
+                ConfigurationSource.Resource resource = ConfigFileLoader.getSource().getResource(resourceName);
                 is = resource.getInputStream();
             } catch (IOException e) {
                 if (containerLog.isDebugEnabled()) {
@@ -573,7 +572,7 @@ public class RewriteValve extends ValveBase {
      * @return The condition, rule or map resulting from parsing the line
      */
     public static Object parse(String line) {
-        StringTokenizer tokenizer = new StringTokenizer(line);
+        QuotedStringTokenizer tokenizer = new QuotedStringTokenizer(line);
         if (tokenizer.hasMoreTokens()) {
             String token = tokenizer.nextToken();
             if (token.equals("RewriteCond")) {

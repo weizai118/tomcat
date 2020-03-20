@@ -21,12 +21,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import javax.servlet.ServletContainerInitializer;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletRegistration;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletSecurityElement;
-import javax.servlet.descriptor.JspConfigDescriptor;
+import jakarta.servlet.ServletContainerInitializer;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletRegistration;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletSecurityElement;
+import jakarta.servlet.descriptor.JspConfigDescriptor;
 
 import org.apache.catalina.deploy.NamingResourcesImpl;
 import org.apache.tomcat.ContextBind;
@@ -979,19 +979,6 @@ public interface Context extends Container, ContextBind {
 
 
     /**
-     * @param exceptionType Exception type to look up
-     *
-     * @return the error page entry for the specified Java exception type,
-     *         if any; otherwise return {@code null}.
-     *
-     * @deprecated Unused. Will be removed in Tomcat 10.
-     *             Use {@link #findErrorPage(Throwable)} instead.
-     */
-    @Deprecated
-    public ErrorPage findErrorPage(String exceptionType);
-
-
-    /**
      * Find and return the ErrorPage instance for the specified exception's
      * class, or an ErrorPage instance for the closest superclass for which
      * there is such a definition.  If no associated ErrorPage instance is
@@ -1110,31 +1097,6 @@ public interface Context extends Container, ContextBind {
 
 
     /**
-     * @return the context-relative URI of the error page for the specified
-     * HTTP status code, if any; otherwise return <code>null</code>.
-     *
-     * @param status HTTP status code to look up
-     *
-     * @deprecated Unused. Will be removed in Tomcat 10.
-     *             Use {@link #findErrorPage(int)} instead.
-     */
-    @Deprecated
-    public String findStatusPage(int status);
-
-
-    /**
-     * @return the set of HTTP status codes for which error pages have
-     * been specified.  If none are specified, a zero-length array
-     * is returned.
-     *
-     * @deprecated Unused. Will be removed in Tomcat 10.
-     *             Use {@link #findErrorPages()} instead.
-     */
-    @Deprecated
-    public int[] findStatusPages();
-
-
-    /**
      * @return the associated ThreadBindingListener.
      */
     public ThreadBindingListener getThreadBindingListener();
@@ -1187,7 +1149,7 @@ public interface Context extends Container, ContextBind {
 
 
     /**
-     * Notify all {@link javax.servlet.ServletRequestListener}s that a request
+     * Notify all {@link jakarta.servlet.ServletRequestListener}s that a request
      * has started.
      *
      * @param request The request object that will be passed to the listener
@@ -1197,7 +1159,7 @@ public interface Context extends Container, ContextBind {
     public boolean fireRequestInitEvent(ServletRequest request);
 
     /**
-     * Notify all {@link javax.servlet.ServletRequestListener}s that a request
+     * Notify all {@link jakarta.servlet.ServletRequestListener}s that a request
      * has ended.
      *
      * @param request The request object that will be passed to the listener
@@ -1393,6 +1355,7 @@ public interface Context extends Container, ContextBind {
      */
     public JspConfigDescriptor getJspConfigDescriptor();
 
+
     /**
      * Set the JspConfigDescriptor for this context.
      * A null value indicates there is not JSP configuration.
@@ -1400,6 +1363,7 @@ public interface Context extends Container, ContextBind {
      * @param descriptor the new JSP configuration
      */
     public void setJspConfigDescriptor(JspConfigDescriptor descriptor);
+
 
     /**
      * Add a ServletContainerInitializer instance to this web application.
@@ -1410,6 +1374,7 @@ public interface Context extends Container, ContextBind {
      */
     public void addServletContainerInitializer(
             ServletContainerInitializer sci, Set<Class<?>> classes);
+
 
     /**
      * Is this Context paused whilst it is reloaded?
@@ -1426,9 +1391,10 @@ public interface Context extends Container, ContextBind {
      */
     boolean isServlet22();
 
+
     /**
      * Notification that Servlet security has been dynamically set in a
-     * {@link javax.servlet.ServletRegistration.Dynamic}
+     * {@link jakarta.servlet.ServletRegistration.Dynamic}
      * @param registration Servlet security was modified for
      * @param servletSecurityElement new security constraints for this Servlet
      * @return urls currently mapped to this registration that are already
@@ -1481,7 +1447,7 @@ public interface Context extends Container, ContextBind {
     /**
      * @return The version of this web application, used to differentiate
      * different versions of the same web application when using parallel
-     * deployment.
+     * deployment. If not specified, defaults to the empty string.
      */
     public String getWebappVersion();
 
@@ -1774,7 +1740,7 @@ public interface Context extends Container, ContextBind {
 
     /**
      * Controls whether HTTP 1.1 and later location headers generated by a call
-     * to {@link javax.servlet.http.HttpServletResponse#sendRedirect(String)}
+     * to {@link jakarta.servlet.http.HttpServletResponse#sendRedirect(String)}
      * will use relative or absolute redirects.
      * <p>
      * Relative redirects are more efficient but may not work with reverse
@@ -1794,7 +1760,7 @@ public interface Context extends Container, ContextBind {
 
     /**
      * Will HTTP 1.1 and later location headers generated by a call to
-     * {@link javax.servlet.http.HttpServletResponse#sendRedirect(String)} use
+     * {@link jakarta.servlet.http.HttpServletResponse#sendRedirect(String)} use
      * relative or absolute redirects.
      *
      * @return {@code true} if relative redirects will be used {@code false} if
@@ -1856,7 +1822,7 @@ public interface Context extends Container, ContextBind {
 
     /**
      * Configure if, when returning a context path from {@link
-     * javax.servlet.http.HttpServletRequest#getContextPath()}, the return value
+     * jakarta.servlet.http.HttpServletRequest#getContextPath()}, the return value
      * is allowed to contain multiple leading '/' characters.
      *
      * @param allowMultipleLeadingForwardSlashInPath The new value for the flag
@@ -1866,7 +1832,7 @@ public interface Context extends Container, ContextBind {
 
     /**
      * When returning a context path from {@link
-     * javax.servlet.http.HttpServletRequest#getContextPath()}, is it allowed to
+     * jakarta.servlet.http.HttpServletRequest#getContextPath()}, is it allowed to
      * contain multiple leading '/' characters?
      *
      * @return <code>true</code> if multiple leading '/' characters are allowed,
